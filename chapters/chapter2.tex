@@ -1,0 +1,173 @@
+\chapter{Aproximación de funciones con familias lineales}
+\label{chap:aproximacion_lineal}
+
+% --- Datos del estudiante (completar) ---
+\begin{tcolorbox}[
+  colframe=CtpLavender,
+  colback=CtpLavender!0,
+  arc=0.5pt,
+  boxrule=0.5pt,
+  left=6pt,
+  right=6pt,
+  top=6pt,
+  bottom=6pt,
+  fontupper=\small
+]
+\noindent
+\textcolor{CtpMauve}{\textbf{Autor:}} \textit{[Nombre y apellidos]}\\[2pt]
+\textcolor{CtpMauve}{\textbf{Afiliación:}} \textit{[Institución, departamento]}\\[2pt]
+\textcolor{CtpMauve}{\textbf{Correo:}} \texttt{[email@dominio.com]}
+\end{tcolorbox}
+
+\section{Abstract}
+Esta práctica introduce el concepto de modelos paramétricos lineales para aproximar funciones a partir de datos. Se implementan tres familias de bases: monomios (polinomios), series de Fourier truncadas y funciones de base radial (RBF). Se analiza el efecto del número de parámetros sobre el error de generalización, tanto en ausencia como en presencia de ruido. Además se calcula el número de condición de la matriz de diseño para entender la estabilidad numérica de cada método. Los resultados permiten visualizar los fenómenos de subajuste y sobreajuste, así como la importancia del condicionamiento en la fiabilidad de la aproximación.
+
+\section{Objetivos}
+\begin{itemize}
+  \item Implementar modelos lineales en parámetros utilizando bases polinómicas (monomios), series de Fourier y funciones de base radial (gaussiana y multicuadrática).
+  \item Estudiar la dependencia del error de aproximación (normas \(L_2\), \(L_1\) y \(L_\infty\)) con el número de parámetros, identificando regímenes de subajuste y sobreajuste.
+  \item Calcular el número de condición \(\kappa_2\) de la matriz de diseño para cada método y relacionarlo con la estabilidad numérica.
+  \item Analizar el efecto del ruido aditivo sobre la calidad de la aproximación y sobre la elección óptima del número de parámetros.
+  \item Comparar el comportamiento de las tres familias para funciones con diferentes propiedades (suave, con picos, no derivable).
+\end{itemize}
+
+\section{Fundamentos teóricos}
+
+\subsection{Problema de aproximación de funciones}
+Dada una función desconocida \(f: \mathbb{R} \to \mathbb{R}\) de la que se conocen valores en un conjunto de puntos \(\{x_i\}_{i=1}^n\) (posiblemente contaminados por ruido), se busca una función \(\hat{f}\) que aproxime a \(f\) dentro y fuera del conjunto de entrenamiento. En esta práctica nos restringimos a modelos paramétricos lineales en los parámetros \(\boldsymbol{\theta}\).
+
+\begin{definicion}{Modelo lineal en parámetros}
+Un modelo de la forma
+\[
+\hat{f}(x;\boldsymbol{\theta}) = \sum_{j=1}^{p} \theta_j \phi_j(x),
+\]
+donde \(\{\phi_j(x)\}\) son funciones base fijas y \(\boldsymbol{\theta} = (\theta_1,\dots,\theta_p)^\top\) son los parámetros a determinar, se denomina \emph{lineal en parámetros}.
+\end{definicion}
+
+\subsection{Solución por mínimos cuadrados}
+Dados los datos de entrenamiento \((x_i, y_i)\) con \(y_i = f(x_i) + \varepsilon_i\) (opcionalmente \(\varepsilon_i = 0\)), la función de pérdida cuadrática es
+\[
+\mathcal{L}(\boldsymbol{\theta}) = \sum_{i=1}^{n} \left( y_i - \sum_{j=1}^{p} \theta_j \phi_j(x_i) \right)^2.
+\]
+La minimización de \(\mathcal{L}\) conduce a las ecuaciones normales. En forma matricial, definiendo \(\mathbf{A}_{ij} = \phi_j(x_i)\) y \(\mathbf{y} = (y_1,\dots,y_n)^\top\), la solución es
+\[
+\boldsymbol{\theta}^* = (\mathbf{A}^\top\mathbf{A})^{-1}\mathbf{A}^\top\mathbf{y}.
+\]
+Cuando \(\mathbf{A}\) tiene rango completo, esta expresión es única.
+
+\subsection{Métricas de error}
+Para evaluar la calidad de la aproximación se emplean tres normas sobre un conjunto de test \(\{x_k^{\text{test}}\}_{k=1}^{N_{\text{test}}}\) (por ejemplo, una malla fina en el dominio):
+\begin{align}
+L_2 &: \quad \text{RMSE} = \sqrt{\frac{1}{N_{\text{test}}} \sum_{k=1}^{N_{\text{test}}} \bigl( f(x_k) - \hat{f}(x_k) \bigr)^2},\\
+L_1 &: \quad \text{MAE} = \frac{1}{N_{\text{test}}} \sum_{k=1}^{N_{\text{test}}} \bigl| f(x_k) - \hat{f}(x_k) \bigr|,\\
+L_\infty &: \quad \text{Error máximo} = \max_{k} \bigl| f(x_k) - \hat{f}(x_k) \bigr|.
+\end{align}
+
+\subsection{Número de condición}
+El número de condición en norma 2 de la matriz de diseño \(\mathbf{A}\) se define como
+\[
+\kappa_2(\mathbf{A}) = \frac{\sigma_{\max}(\mathbf{A})}{\sigma_{\min}(\mathbf{A})},
+\]
+donde \(\sigma_{\max}\) y \(\sigma_{\min}\) son los valores singulares mayor y menor. Un valor cercano a 1 indica que el problema está bien condicionado; valores grandes revelan sensibilidad a errores en los datos y posibles inestabilidades numéricas.
+
+\section{Métodos propuestos}
+
+\subsection{Bases polinómicas (monomios)}
+Se utiliza la base de monomios \(\phi_j(x) = x^{j-1}\) para \(j=1,\dots,p\). La matriz de diseño es la matriz de Vandermonde
+\[
+\mathbf{A}_{ij} = x_i^{j-1}.
+\]
+La solución por mínimos cuadrados corresponde a un polinomio de grado \(p-1\) que puede no interpolar exactamente los datos cuando \(p < n\). Cuando \(p = n\) y los \(x_i\) son distintos, la matriz es invertible y el polinomio interpola los datos (polinomio de Lagrange).
+
+\subsection{Series de Fourier truncadas}
+En el intervalo \([-\pi,\pi]\) se emplea la base ortonormal
+\[
+\phi_1(x)=1,\quad \phi_{2k}(x)=\cos(kx),\quad \phi_{2k+1}(x)=\sin(kx),\quad k=1,\dots,K.
+\]
+El número total de parámetros es \(p = 2K+1\). La matriz de diseño se construye evaluando estas funciones en los puntos de entrenamiento.
+
+\subsection{Funciones de base radial (RBF)}
+Se elige un conjunto de centros \(\{c_j\}_{j=1}^{M}\), que en este trabajo serán los propios puntos de entrenamiento (\(M = n\)). Las funciones base son
+\[
+\phi_j(x) = \phi\!\left(\frac{|x-c_j|}{\sigma}\right),
+\]
+con dos opciones para \(\phi\):
+\begin{itemize}
+  \item Gaussiana: \(\phi(r) = \exp(-r^2/2)\).
+  \item Multicuadrática: \(\phi(r) = \sqrt{1 + r^2}\).
+\end{itemize}
+El parámetro \(\sigma\) controla la anchura de las funciones y debe ajustarse. Para una elección inicial, se puede tomar \(\sigma\) igual al espaciado promedio entre centros.
+
+\subsection{Pseudocódigo genérico}
+Para cada método, los pasos son:
+\begin{enumerate}
+  \item Generar puntos de entrenamiento \(x_i\) equiespaciados en el dominio.
+  \item Si se incluye ruido, añadir \(\varepsilon_i \sim \mathcal{N}(0,\sigma_\varepsilon^2)\) a las ordenadas.
+  \item Construir la matriz de diseño \(\mathbf{A}\) según la base elegida.
+  \item Resolver el sistema lineal \(\mathbf{A}^\top\mathbf{A} \boldsymbol{\theta} = \mathbf{A}^\top\mathbf{y}\) (o usar descomposición QR).
+  \item Evaluar el modelo en una malla fina de test y calcular las normas de error.
+  \item Calcular \(\kappa_2(\mathbf{A})\) mediante la descomposición en valores singulares.
+\end{enumerate}
+
+\section{Experimentos numéricos}
+
+\subsection{Funciones de prueba}
+\begin{enumerate}
+  \item \(f_1(x) = \sin(2x)\), \(x\in[-\pi,\pi]\).
+  \item \(f_2(x) = \dfrac{1}{1+25x^2}\), \(x\in[-1,1]\).
+  \item \(f_3(x) = |x|\), \(x\in[-1,1]\).
+\end{enumerate}
+
+\subsection{Experimento 1: Ajuste sin ruido}
+Para cada función y cada método (monomios, Fourier, RBF gaussiana y multicuadrática), variar el número de parámetros:
+\begin{itemize}
+  \item Monomios: \(p = 2,3,\dots,20\) (grado \(p-1\)).
+  \item Fourier: \(K = 1,\dots,10\) (\(p = 2K+1\)).
+  \item RBF: \(M = 2,3,\dots,20\) (centros = puntos de entrenamiento). Fijar \(\sigma\) como el espaciado promedio entre centros.
+\end{itemize}
+Utilizar puntos de entrenamiento equiespaciados en el dominio. Calcular errores \(L_2, L_1, L_\infty\) sobre una malla de test de 1000 puntos. Calcular también \(\log_{10}\kappa_2\) de la matriz de diseño. Generar gráficas:
+\begin{itemize}
+  \item Errores vs. número de parámetros (escala logarítmica en el eje vertical).
+  \item \(\log_{10}\kappa\) vs. número de parámetros.
+\end{itemize}
+
+\subsection{Experimento 2: Ajuste con ruido}
+Repetir el Experimento 1 añadiendo ruido gaussiano \(\varepsilon_i \sim \mathcal{N}(0, \sigma_\varepsilon^2)\) con \(\sigma_\varepsilon = 0.05\). Comparar las curvas de error con las del caso sin ruido. Discutir cómo cambia el número de parámetros óptimo.
+
+\subsection{Experimento 3 (opcional): Variación de \(\sigma\) en RBF}
+Fijar un número de centros \(M = 10\) y variar \(\sigma\) en un rango logarítmico, por ejemplo \(\sigma \in [10^{-2}, 10^{2}]\). Para cada \(\sigma\), calcular el error de test y \(\kappa_2\). Graficar ambas cantidades en función de \(\sigma\).
+
+\section{Resultados}
+\textit{Esta sección debe contener las gráficas y tablas generadas por el estudiante. A modo de guía, se espera que incluya:}
+\begin{itemize}
+  \item Gráficas de error (sin ruido) para cada función, con curvas diferenciadas por método.
+  \item Gráficas de \(\log_{10}\kappa\) para cada método, mostrando la explosión en el caso de monomios.
+  \item Tabla con los valores óptimos de \(p\) (o \(K\), \(M\)) para cada función y método en el caso con ruido.
+  \item Gráficas comparativas con ruido, resaltando el sobreajuste.
+\end{itemize}
+
+\section{Discusión}
+\textit{El estudiante debe responder a las siguientes preguntas, apoyándose en sus resultados:}
+\begin{itemize}
+  \item ¿Cómo se comporta el error de test al aumentar la complejidad? ¿Dónde se observan subajuste y sobreajuste?
+  \item ¿Qué relación observa entre el número de condición y la estabilidad numérica? ¿Cómo influye en el error con ruido?
+  \item ¿Por qué la base de Fourier tiene \(\kappa \approx 1\) mientras que los monomios tienen \(\kappa\) enorme?
+  \item ¿Cómo afecta \(\sigma\) en RBF al condicionamiento y al error de generalización?
+  \item ¿Qué método recomendaría si no tuviera información a priori sobre la función? Justifique.
+\end{itemize}
+
+\section{Conclusiones}
+\textit{El estudiante resumirá los principales aprendizajes, destacando la importancia del balance complejidad–generalización, la relevancia del condicionamiento numérico y las ventajas y desventajas de cada familia de bases en función de las propiedades de la función objetivo.}
+
+\section{Referencias}
+\begin{notasbib}
+  \textbf{Notas sobre la literatura:}
+  
+  El fenómeno de Runge fue estudiado originalmente por \cite{runge1901}. 
+  Para una introducción moderna a la teoría de la aproximación, véase \cite{trefethen2019}. 
+  Los conceptos de sesgo-varianza y regularización se tratan en profundidad en \cite{hastie2009}.
+  La teoría de funciones de base radial puede consultarse en \cite{buhmann2003}.
+\end{notasbib}
+
+% La bibliografía se genera automáticamente con las entradas del archivo references.bib
+\printbibliography[heading=subbibliography]

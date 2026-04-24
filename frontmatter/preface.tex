@@ -1,0 +1,101 @@
+% =============================================================================
+% PREFACIO — Qbit Lab: Laboratorio de Física Computacional
+% =============================================================================
+\chapter*{Prefacio}
+\addcontentsline{toc}{chapter}{Prefacio}
+
+\begin{flushright}
+\itshape
+``The purpose of computing is insight, not numbers.''\\[2pt]
+\upshape --- Richard W. Hamming (1962)
+\end{flushright}
+\bigskip
+
+Este laboratorio existe porque Hamming tenía razón. El propósito de cada
+práctica no es que el estudiante ejecute código y obtenga números, sino que
+construya intuición sobre la estructura que las fluctuaciones revelan, los
+modos que la regularización selecciona, y las distribuciones que la dinámica
+estocástica encuentra. Los números son verificación; la física es el objetivo.
+
+Las prácticas implementan los resultados de \textit{La máquina estocástica}
+--- un texto de aprendizaje automático para físicos de posgrado que
+sostiene que el ML moderno es física estadística en dimensión alta. Pero
+este compendio es un documento autónomo: cada práctica es autocontenida,
+con sus propios fundamentos teóricos, y puede seguirse sin haber leído
+el libro. Lo que sí se hereda es la perspectiva: aquí no se ``entrena un
+modelo''; se deja que un sistema estocástico se relaje hacia el equilibrio,
+se observan las consecuencias del principio de máxima entropía, y se
+verifica que las ecuaciones de Fokker-Planck y Langevin gobiernan tanto
+la difusión de neutrones como el descenso de gradiente estocástico.
+
+\subsection*{Qué se espera del estudiante}
+
+Estas prácticas están dirigidas a estudiantes graduados de física con
+formación estándar en mecánica clásica, mecánica estadística, métodos
+matemáticos y programación científica. No se asume experiencia previa en
+aprendizaje automático. Se asume que el estudiante sabe programar en algún
+lenguaje científico y que puede leer una ecuación diferencial sin
+sobresaltarse.
+
+Las implementaciones son agnósticas del lenguaje: los algoritmos se
+presentan como pseudocódigo y el estudiante los traduce al entorno de su
+preferencia (Python, Julia, C++, MATLAB). Se busca comprensión
+algorítmica, no dependencia de librerías. Cuando un framework como
+PyTorch o JAX aparece, es para verificar resultados, no para reemplazar
+el entendimiento.
+
+\subsection*{Estructura de las prácticas}
+
+Cada práctica sigue el formato IMRaD (Introducción, Métodos, Resultados,
+Discusión) con secciones para fundamentos teóricos, experimentos numéricos,
+análisis de resultados y preguntas abiertas. El arco temático sigue el
+del libro:
+
+\begin{enumerate}
+  \item Aproximación de funciones con bases fijas: monomios, Fourier, RBF.
+        El oscilador armónico como primer laboratorio.
+  \item Sobreajuste y regularización: SVD, filtro de Wiener, curva L.
+        El condicionamiento como observable numérico.
+  \item Geometría del paisaje de pérdida: gradiente, hessiano, saddle points.
+        Descenso de gradiente como integrador de Euler.
+  \item La red neuronal como aproximador: forward pass, activaciones,
+        profundidad vs.\ anchura.
+  \item Optimización estocástica: SGD como Langevin, distribución de Gibbs,
+        temperatura efectiva y recocido.
+  \item Retropropagación: backward pass manual, verificación por diferencias
+        finitas, diferenciación automática.
+  \item Inferencia y modelos generativos: MLE, MAP, VAE, MC Dropout,
+        cuantificación de incertidumbre.
+  \item Arquitecturas: convoluciones, atención, transformers.
+  \item Ecuaciones diferenciales estocásticas: Euler-Maruyama, Milstein,
+        proceso de Ornstein-Uhlenbeck.
+  \item Modelos de difusión y flow matching: DDPM, DDIM, score matching,
+        transporte óptimo.
+\end{enumerate}
+
+Un ejemplo unificado --- la señal de un oscilador armónico simple ---
+recorre las primeras siete prácticas como hilo conductor, permitiendo
+al estudiante comparar cada herramienta nueva contra las anteriores en
+un sistema que conoce de memoria.
+
+\subsection*{Sobre este proyecto}
+
+Este compendio nace como extensión práctica de mi libro \textit{La máquina
+estocástica}, un proyecto personal desarrollado durante mis estudios de
+doctorado en Ciencias de la Computación. Es también un puente hacia
+\texttt{@QbitLab}, mi comunidad de divulgación científica a la que no he
+podido retribuir en los últimos años pero que espero revitalizar pronto.
+A los más de 40\,000 seguidores que hicieron posible aquella etapa: este
+laboratorio es también para ustedes, con la esperanza de que el espíritu
+de compartir conocimiento siga vivo en estas páginas.
+
+\vspace{0.3cm}
+\noindent
+Construido sobre la plantilla \texttt{latex-catppuccin-labs}
+(\url{https://github.com/Zessinthel/latex-catppuccin-labs}).
+
+\vspace{1.2cm}
+\begin{flushright}
+\textit{J.\,A. Chala Casanova\enspace(\texttt{@QbitLab})}\\[2pt]
+\the\year
+\end{flushright}

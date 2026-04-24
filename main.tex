@@ -1,0 +1,65 @@
+\documentclass[12pt, oneside]{book}
+
+% =============================================================================
+% BASIC PACKAGES AND CONFIGURATION
+% =============================================================================
+\input{config/packages.tex}
+\input{config/geometry.tex}
+
+% =============================================================================
+% METADATOS
+% =============================================================================
+\input{metadata.tex}
+
+% =============================================================================
+% THEME (CHOOSE ONE)
+% =============================================================================
+% Descomentar UNA sola línea:
+\input{themes/catppuccin-palette.tex}    % Latte (claro) por defecto
+%\input{themes/catppuccin-latte.tex}     % Frappé
+%\input{themes/custom-theme.tex}         % Tema personalizado sin Catppuccin
+
+% =============================================================================
+% HYPERREF (después del tema, usa colores Ctp*)
+% =============================================================================
+\input{config/hyperref.tex}
+
+% =============================================================================
+% MACROS AND ENVIRONMENTS
+% =============================================================================
+\input{config/macros.tex}
+\input{config/tcolorbox-config.tex}
+\input{environments/generator.tex}
+\input{environments/instances.tex}
+\input{environments/specials.tex}
+
+% =============================================================================
+% CONFIGURACIONES ADICIONALES (después del tema)
+% =============================================================================
+\input{config/titles-config.tex}
+\input{config/listings-catppuccin.tex}
+\input{config/algorithms.tex}
+\input{config/tables-config.tex}
+\input{config/equation-styles.tex}
+\input{config/pgfplots-config.tex}
+\input{config/captions-config.tex}
+
+% =============================================================================
+% DOCUMENT
+% =============================================================================
+\begin{document}
+
+\input{frontmatter/titlepage.tex}
+\input{frontmatter/preliminary.tex}	
+\input{frontmatter/preface.tex}
+
+\tableofcontents
+
+\include{chapters/chapter1}
+
+\begin{appendices}
+\include{backmatter/appendixA}
+\include{backmatter/appendixB}
+\end{appendices}
+
+\end{document}

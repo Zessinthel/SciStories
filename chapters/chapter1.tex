@@ -1,0 +1,830 @@
+%═══════════════════════════════════════════════════════════════════════════════
+% PRÁCTICA 1 — Aproximación de Funciones con Bases Fijas
+%
+% Cubre los contenidos de los Capítulos 1 y 2 de La máquina estocástica.
+% El oscilador armónico como señal de referencia; bases de monomios, Fourier
+% y RBF gaussiana; mínimos cuadrados; sobreajuste y condicionamiento.
+%═══════════════════════════════════════════════════════════════════════════════
+\chapter{Aproximación de Funciones con Bases Fijas}
+\label{chap:aproximacion}
+
+% ---------------------------------------------------------------------------
+% Bloque de datos del estudiante
+% ---------------------------------------------------------------------------
+\textcolor{CtpMauve}{\textbf{Autor:}} \textit{Jesús Antonio Chala Casanova}\\[2pt]
+\textcolor{CtpMauve}{\textbf{Afiliación:}} \textit{@QbitLab}
+
+% ---------------------------------------------------------------------------
+% ABSTRACT
+% ---------------------------------------------------------------------------
+\section*{Abstract}
+\label{sec:abstract}
+
+\textit{Esta práctica introduce la aproximación de funciones mediante modelos lineales en parámetros, centrándose en la tensión entre capacidad de representación y generalización (sesgo-varianza). Se implementan tres familias de bases: monomios (Vandermonde), Fourier truncada y RBF gaussiana. Sobre tres funciones de prueba con distinta regularidad, se construyen matrices de diseño para conjuntos fijos de entrenamiento y prueba, y se resuelve el problema de mínimos cuadrados mediante SVD. Se calculan el número de condición, métricas de error (RMSE, MAE, $E_\infty$) y la norma de los parámetros. Se analiza la evolución de los errores y del condicionamiento al variar $p$, y se estudia el efecto del ruido gaussiano aditivo sobre el punto óptimo y la estabilidad de la solución. Los resultados permitirán comprender cómo la elección de la base condiciona la generalización y la estabilidad numérica, sentando las bases para la regularización en la siguiente práctica.}
+
+% ---------------------------------------------------------------------------
+% OBJETIVOS
+% ---------------------------------------------------------------------------
+\section*{Objetivos}
+
+\subsection*{Objetivo general}
+Comprender cómo la elección de la familia de funciones base y el número de parámetros afectan la capacidad de generalización en modelos lineales, identificando los regímenes de subajuste y sobreajuste mediante el análisis de errores y del condicionamiento numérico.
+
+\subsection*{Objetivos específicos}
+\begin{enumerate}[leftmargin=2em, label=\arabic*.]
+  \item Implementar la construcción de matrices de diseño para las bases de monomios, Fourier truncada y RBF gaussiana, y resolver el problema de mínimos cuadrados mediante descomposición en valores singulares (SVD), calculando el número de condición \(\kappa(\mathbf{A})\) y las métricas RMSE, MAE y \(E_\infty\).
+  \item Analizar cuantitativamente la evolución de los errores de entrenamiento y prueba al variar el número de parámetros \(p\) (sin ruido), identificando el punto óptimo \(p^*\) y relacionando el sobreajuste con el crecimiento de \(\kappa(\mathbf{A})\) y de la norma de los parámetros.
+  \item Evaluar el efecto del ruido gaussiano aditivo sobre el desplazamiento de \(p^*\) y la estabilidad de la solución, comparando el comportamiento de las tres bases y motivando la necesidad de la regularización.
+\end{enumerate}
+
+% ---------------------------------------------------------------------------
+% FUNDAMENTOS TEÓRICOS
+% ---------------------------------------------------------------------------
+\section*{Fundamentos teóricos}
+\label{sec:teoria}
+
+\subsection*{El problema de aproximación de funciones}
+\label{sec:problema_aprox}
+
+Supóngase que una función $f^* : \mathcal{X} \to \mathbb{R}$, con
+$\mathcal{X} \subseteq \mathbb{R}$, es accesible únicamente a través de
+$n$ evaluaciones ruidosas
+\[
+  \eqk{y_i} \;=\; f^*(\eqk{x_i}) + \eqk{\varepsilon_i},
+  \qquad i = 1, \ldots, n,
+\]
+donde $\eqk{x_i}$ son los puntos de entrenamiento y $\eqk{\varepsilon_i}$ es
+el ruido de observación. En esta práctica se utilizará ruido gaussiano blanco
+aditivo: $\eqk{\varepsilon_i} \sim \mathcal{N}(0, \sigma_\varepsilon^2)$,
+independiente e idénticamente distribuido (i.i.d.). La desviación típica
+$\sigma_\varepsilon$ controla la intensidad del ruido. En la Parte A se
+trabajará sin ruido ($\sigma_\varepsilon = 0$), mientras que en la Parte B
+se añadirá ruido con distintos niveles para estudiar su efecto sobre la
+generalización.
+
+El problema de aproximación consiste en encontrar una función
+$f(\cdot;\equ{\boldsymbol{\theta}})$ perteneciente a una familia
+parametrizada que reproduzca fielmente $f^*$ sobre la región de interés,
+incluso en puntos no observados. La elección de la familia parametrizada es el grado de libertad del
+diseñador. Si la familia es demasiado pequeña (pocas funciones de base),
+la aproximación no tiene capacidad de representar $f^*$ aunque se tenga
+infinitos datos: hay subajuste. Si es demasiado grande (muchos parámetros),
+la aproximación memoriza el ruido en lugar de aprender la señal: hay
+sobreajuste. Esta tensión es la primera instancia del dilema
+\emph{sesgo-varianza}, que reaparece en la Práctica 2 con una formulación
+probabilística precisa.
+
+\subsection*{Modelos lineales en parámetros}
+\label{sec:modelos_lineales}
+
+\begin{definicion}{Modelo lineal en parámetros}
+\label{def:modelo_lineal}
+Un \textbf{modelo lineal en parámetros} es una función de la forma
+\[
+  f(x;\equ{\boldsymbol{\theta}}) \;=\; \sum_{j=1}^{p} \equ{\theta_j}\,\phi_j(x)
+  \;=\; \boldsymbol{\phi}(x)^\top \equ{\boldsymbol{\theta}},
+\]
+donde $\{\phi_j\}_{j=1}^p$ es una familia fija de \textbf{funciones de base}
+(o \textit{features}) y $\equ{\boldsymbol{\theta}} \in \mathbb{R}^p$ es el
+vector de parámetros a determinar. El modelo es lineal en
+$\equ{\boldsymbol{\theta}}$ aunque las $\phi_j$ pueden ser funciones
+altamente no lineales de $x$.
+\end{definicion}
+
+La evaluación del modelo en los $n$ puntos de entrenamiento se escribe
+matricialmente como
+\[
+  \mathbf{f} \;=\; \eqvec{A}\,\equ{\boldsymbol{\theta}},
+\]
+donde la \textbf{matriz de diseño} (\textit{design matrix})
+$\eqvec{A} \in \mathbb{R}^{n \times p}$ tiene entradas
+\[
+  A_{ij} \;=\; \phi_j(\eqk{x_i}), \quad i = 1,\ldots,n,\; j = 1,\ldots,p.
+\]
+La estructura de $\eqvec{A}$ depende enteramente de la elección de las
+bases $\{\phi_j\}$ y de los puntos de muestro $\{x_i\}$; el vector de
+datos $\eqk{\mathbf{y}}$ no aparece en $\eqvec{A}$. Esta separación entre
+estructura (bases) y datos ($\mathbf{y}$) es la que hace el problema lineal
+y tratable analíticamente.
+
+\subsection*{Familias de bases}
+\label{sec:familias_bases}
+
+\subsubsection{Base monomial (Vandermonde)}
+\label{sec:vandermonde}
+
+\begin{definicion}{Base de monomios}
+\label{def:monomios}
+La \textbf{base de monomios} de grado $p-1$ está formada por las funciones
+\[
+  \phi_j(x) \;=\; x^{\,j-1}, \qquad j = 1, \dots, p.
+\]
+La matriz de diseño resultante para un conjunto de puntos $\{\eqk{x_i}\}_{i=1}^n$ es la
+\textbf{matriz de Vandermonde}:
+\[
+  \eqvec{A}_{\mathrm{Van}} \;=\; \begin{pmatrix}
+    1 & \eqk{x_1} & \eqk{x_1}^2 & \cdots & \eqk{x_1}^{p-1} \\
+    1 & \eqk{x_2} & \eqk{x_2}^2 & \cdots & \eqk{x_2}^{p-1} \\
+    \vdots & & & \ddots & \vdots \\
+    1 & \eqk{x_n} & \eqk{x_n}^2 & \cdots & \eqk{x_n}^{p-1}
+  \end{pmatrix}.
+\]
+Cuando $n=p$ y los puntos son distintos, $\eqvec{A}_{\mathrm{Van}}$ es invertible
+($\det \eqvec{A}_{\mathrm{Van}} = \prod_{1\le i<j\le n}(\eqk{x_j}-\eqk{x_i}) \neq 0$) y el sistema
+$\eqvec{A}_{\mathrm{Van}}\equ{\boldsymbol{\theta}}=\eqk{\mathbf{y}}$ proporciona el polinomio
+interpolador en la base monomial.
+\end{definicion}
+
+\begin{observacion}{Inestabilidad numérica de la base monomial}
+\label{obs:vandermonde_inestable}
+El número de condición de la matriz de Vandermonde crece exponencialmente
+con el grado del polinomio cuando los puntos $\eqk{x_i}$ están equiespaciados
+o el dominio no es $[-1,1]$. Para $p = 20$ puntos equiespaciados en $[-1,1]$,
+es común obtener $\kappa(\eqvec{A}_{\mathrm{Van}}) \sim 10^{15}$, lo que
+agota toda la precisión de doble precisión ($\varepsilon_{\mathrm{mach}}
+\approx 10^{-16}$; véase \Cref{def:epsilon_mach}). En la práctica, esto
+significa que la solución pierde casi todos sus dígitos significativos,
+haciéndola inservible.
+\end{observacion}
+
+\begin{fisicaconexion}{Interpolación de Lagrange como cambio de base}
+La interpolación polinomial puede realizarse en la base de Lagrange
+$\{L_j(x)\}$, definida por $L_j(\eqk{x_i}) = \delta_{ij}$. En esa base, la
+matriz de diseño es la identidad y los coeficientes son directamente los
+valores $\eqk{y_i}$. Ambas representaciones son matemáticamente equivalentes,
+pero numéricamente la base monomial es extremadamente inestable (gran
+número de condición), mientras que la base de Lagrange evita resolver un
+sistema lineal, aunque sigue sufriendo el fenómeno de Runge en puntos
+equiespaciados. La elección de base es, por tanto, determinante para la
+estabilidad numérica.
+\end{fisicaconexion}
+
+\subsubsection{Base de Fourier truncada}
+\label{sec:fourier}
+
+\begin{definicion}{Base de Fourier truncada}
+\label{def:fourier}
+Para funciones definidas sobre un intervalo $[a,b]$ (periódico o no), la
+\textbf{base de Fourier truncada} con $K$ armónicos está formada por
+\[
+  \phi_1(x)=1,\quad
+  \phi_{2k}(x)=\cos(k\eqcon{\omega_1} x),\quad
+  \phi_{2k+1}(x)=\sin(k\eqcon{\omega_1} x),\qquad k=1,\dots,K,
+\]
+donde $\eqcon{\omega_1} = 2\pi/(b-a)$ es la frecuencia fundamental.
+El número total de parámetros es $p = 2K+1$.
+
+La \textbf{matriz de diseño} $\eqvec{A}_{\mathrm{Fou}} \in \mathbb{R}^{n \times p}$
+tiene entradas $A_{ij} = \phi_j(\eqk{x_i})$. Explícitamente, para $n$ puntos $\{\eqk{x_i}\}$:
+\[
+\eqvec{A}_{\mathrm{Fou}} =
+\begin{pmatrix}
+1 & \cos(\eqcon{\omega_1}\eqk{x_1}) & \sin(\eqcon{\omega_1}\eqk{x_1}) & \cos(2\eqcon{\omega_1}\eqk{x_1}) & \sin(2\eqcon{\omega_1}\eqk{x_1}) & \cdots \\
+1 & \cos(\eqcon{\omega_1}\eqk{x_2}) & \sin(\eqcon{\omega_1}\eqk{x_2}) & \cos(2\eqcon{\omega_1}\eqk{x_2}) & \sin(2\eqcon{\omega_1}\eqk{x_2}) & \cdots \\
+\vdots & \vdots & \vdots & \vdots & \vdots & \ddots \\
+1 & \cos(\eqcon{\omega_1}\eqk{x_n}) & \sin(\eqcon{\omega_1}\eqk{x_n}) & \cos(2\eqcon{\omega_1}\eqk{x_n}) & \sin(2\eqcon{\omega_1}\eqk{x_n}) & \cdots
+\end{pmatrix}.
+\]
+Obsérvese que las columnas se alternan: coseno y seno para cada frecuencia,
+precedidos por la columna constante.
+\end{definicion}
+
+\begin{teorema}{Ortogonalidad de la base de Fourier}
+\label{thm:fourier_orto}
+Si los $n$ puntos están igualmente espaciados en el intervalo semiabierto $[a,b)$,
+es decir, $\eqk{x_i} = a + (i-1)\frac{b-a}{n}$ para $i=1,\dots,n$, entonces la matriz de
+diseño satisface
+\[
+  \eqvec{A}_{\mathrm{Fou}}^\top \eqvec{A}_{\mathrm{Fou}} =
+  \begin{pmatrix}
+    n & 0 & 0 & \cdots \\
+    0 & \frac{n}{2} & 0 & \cdots \\
+    0 & 0 & \frac{n}{2} & \cdots \\
+    \vdots & \vdots & \vdots & \ddots
+  \end{pmatrix}
+  = \operatorname{diag}\!\left(n, \frac{n}{2}, \frac{n}{2}, \dots, \frac{n}{2}\right).
+\]
+Por consiguiente, el número de condición es $\kappa_2(\eqvec{A}_{\mathrm{Fou}}) = \sqrt{2}$
+(independientemente de $p$), lo que demuestra la estabilidad espectral de esta base.
+\end{teorema}
+
+La convergencia de la serie de Fourier truncada es \textbf{espectral} (exponencial en $p$)
+para funciones periódicas analíticas, y \textbf{algebraica} de orden $k$ para funciones
+con derivadas $k$-ésimas continuas a trozos (véase \Cref{def:tasa_exp}).
+
+\begin{fisicaconexion}{DFT y análisis espectral}
+La matriz de Fourier con puntos equiespaciados es la base de la \textbf{Transformada Discreta de Fourier (DFT)}. En notación compleja, $\hat{\eqk{y}}_k = \sum_i \eqk{y_i} e^{-2\pi i k i/n}$; nuestra matriz real (senos y cosenos) es equivalente y hereda su ortogonalidad ($\kappa=\sqrt{2}$). En física experimental, la DFT se usa para analizar espectros de frecuencia, detectar periodicidades en datos astronómicos y reconstruir imágenes en MRI o CT. La estabilidad de la base garantiza que el ruido no se amplifique en el espectro.
+\end{fisicaconexion}
+
+
+\subsubsection{Funciones de base radial (RBF)}
+\label{sec:rbf}
+
+\begin{definicion}{Función de base radial}
+\label{def:rbf}
+Una \textbf{función de base radial} (RBF) está definida por un núcleo
+radialmente simétrico $\Phi : [0,\infty) \to \mathbb{R}$ y un conjunto
+de $p$ centros $\{c_j\}_{j=1}^p \subset \mathcal{X}$:
+\[
+  \phi_j(x) \;=\; \Phi\!\left(\frac{|x - c_j|}{\sigma}\right),
+\]
+donde $\sigma > 0$ es el \textbf{ancho de banda} (\textit{bandwidth}).
+Las dos RBF más comunes en este contexto son:
+
+\begin{itemize}[nosep, leftmargin=1.5em]
+  \item \textbf{Gaussiana:}
+    $\Phi(r) = \exp(-r^2/2)$,\quad
+    $\phi_j(x) = \exp\!\left(-\dfrac{(x-c_j)^2}{2\sigma^2}\right)$.
+  \item \textbf{Multicuadrática:}
+    $\Phi(r) = \sqrt{1 + r^2}$,\quad
+    $\phi_j(x) = \sqrt{1 + (x-c_j)^2/\sigma^2}$.
+\end{itemize}
+\end{definicion}
+
+En esta práctica se utilizan $p$ centros equiespaciados en el dominio $[a,b]$:
+$c_j = a + (j-1)\frac{b-a}{p-1}$, para $j=1,\dots,p$. La matriz de diseño
+$\eqvec{A}_{\mathrm{RBF}} \in \mathbb{R}^{n \times p}$ para la RBF gaussiana tiene entradas
+\[
+  A_{ij} = \exp\!\left(-\frac{(\eqk{x_i} - c_j)^2}{2\sigma^2}\right),
+  \qquad i=1,\dots,n,\; j=1,\dots,p.
+\]
+Explícitamente:
+\[
+\eqvec{A}_{\mathrm{RBF}} =
+\begin{pmatrix}
+\exp\!\left(-\frac{(\eqk{x_1}-c_1)^2}{2\sigma^2}\right) & \exp\!\left(-\frac{(\eqk{x_1}-c_2)^2}{2\sigma^2}\right) & \cdots & \exp\!\left(-\frac{(\eqk{x_1}-c_p)^2}{2\sigma^2}\right) \\
+\exp\!\left(-\frac{(\eqk{x_2}-c_1)^2}{2\sigma^2}\right) & \exp\!\left(-\frac{(\eqk{x_2}-c_2)^2}{2\sigma^2}\right) & \cdots & \exp\!\left(-\frac{(\eqk{x_2}-c_p)^2}{2\sigma^2}\right) \\
+\vdots & \vdots & \ddots & \vdots \\
+\exp\!\left(-\frac{(\eqk{x_n}-c_1)^2}{2\sigma^2}\right) & \exp\!\left(-\frac{(\eqk{x_n}-c_2)^2}{2\sigma^2}\right) & \cdots & \exp\!\left(-\frac{(\eqk{x_n}-c_p)^2}{2\sigma^2}\right)
+\end{pmatrix}.
+\]
+
+\begin{fisicaconexion}{RBF como núcleo de difusión}
+La RBF gaussiana $\exp(-(x-c)^2/(2\sigma^2))$ es la solución de la ecuación de calor $G(x,t) = (4\pi t)^{-1/2}e^{-x^2/(4t)}$ con $t=\sigma^2/2$. Un $\sigma$ pequeño corresponde a un estado poco difundido (alta resolución, sensible al ruido); un $\sigma$ grande suaviza (baja resolución, robusto). Este compromiso motiva la regularización de Tikhonov (Práctica 2).
+\end{fisicaconexion}
+
+\subsection*{Solución por mínimos cuadrados ordinarios}
+\label{sec:minimos_cuadrados}
+
+\begin{definicion}{Función de pérdida cuadrática}
+\label{def:perdida_cuadratica}
+El ajuste por \textbf{mínimos cuadrados ordinarios} (OLS) minimiza la
+suma de residuos al cuadrado:
+\[
+  \mathcal{L}(\equ{\boldsymbol{\theta}}) \;=\;
+  \|\eqk{\mathbf{y}} - \eqvec{A}\equ{\boldsymbol{\theta}}\|_2^2
+  \;=\; \sum_{i=1}^n \bigl(\eqk{y_i} - f(\eqk{x_i};\equ{\boldsymbol{\theta}})\bigr)^2.
+\]
+\end{definicion}
+
+\begin{teorema}{Ecuaciones normales}
+\label{thm:ecuaciones_normales}
+El mínimo global de $\mathcal{L}$ existe y es único cuando $\eqvec{A}$
+tiene rango completo de columnas ($\mathrm{rank}(\eqvec{A}) = p$). El
+minimizador satisface las \textbf{ecuaciones normales}:
+\[
+  \eqvec{A}^\top\eqvec{A}\,\equ{\boldsymbol{\theta}^*}
+  \;=\; \eqvec{A}^\top\eqk{\mathbf{y}},
+\]
+cuya solución es
+\[
+  \equ{\boldsymbol{\theta}^*}
+  \;=\; (\eqvec{A}^\top\eqvec{A})^{-1}\eqvec{A}^\top\eqk{\mathbf{y}}
+  \;=\; \eqvec{A}^+\eqk{\mathbf{y}},
+\]
+donde $\eqvec{A}^+ = (\eqvec{A}^\top\eqvec{A})^{-1}\eqvec{A}^\top$ es
+la pseudoinversa de Moore-Penrose para el caso de rango completo de columnas
+(véase \Cref{prop:pseudoinversa}).
+\end{teorema}
+
+\begin{observacion}{Geometría e inestabilidad numérica}
+La solución $\equ{\boldsymbol{\theta}^*}$ proyecta ortogonalmente $\eqk{\mathbf{y}}$ sobre $\operatorname{col}(\eqvec{A})$, siendo la mejor aproximación en norma $\ell^2$. Sin embargo, formar las ecuaciones normales $\eqvec{A}^\top\eqvec{A}\equ{\boldsymbol{\theta}}=\eqvec{A}^\top\eqk{\mathbf{y}}$ eleva el número de condición al cuadrado: $\kappa(\eqvec{A}^\top\eqvec{A}) = \kappa(\eqvec{A})^2$. Por ello, en la práctica se prefiere resolver el sistema sobredeterminado directamente mediante la SVD (\Cref{alg:lsq_svd}), que es numéricamente estable y proporciona además $\kappa(\eqvec{A})$ sin costo adicional.
+\end{observacion}
+
+
+\subsection*{Sobreajuste, subajuste y generalización}
+\label{sec:generalizacion}
+
+\begin{definicion}{Error de entrenamiento y prueba}
+\label{def:train_test_error}
+Con $\mathcal{D}_{\mathrm{train}}=\{(\eqk{x_i},\eqk{y_i})\}_{i=1}^n$ y $\mathcal{D}_{\mathrm{test}}=\{(\eqk{x_i'},\eqk{y_i'})\}_{i=1}^{n_{\mathrm{test}}}$, el RMSE de entrenamiento y prueba son:
+\[
+  \eqfn{E}_{\mathrm{train}}=\frac{1}{\sqrt{n}}\left\|
+    \eqvec{A}_{\mathrm{train}}\equ{\boldsymbol{\theta}^*}-\eqk{\mathbf{y}}_{\mathrm{train}}
+  \right\|_2,\qquad
+  \eqfn{E}_{\mathrm{test}}=\frac{1}{\sqrt{n_{\mathrm{test}}}}\left\|
+    \eqvec{A}_{\mathrm{test}}\equ{\boldsymbol{\theta}^*}-\eqk{\mathbf{y}}_{\mathrm{test}}
+  \right\|_2.
+\]
+\end{definicion}
+
+Los tres regímenes característicos son:
+\begin{itemize}[nosep]
+  \item \textbf{Subajuste} ($p$ pequeño): $\eqfn{E}_{\mathrm{train}}$ grande, $\eqfn{E}_{\mathrm{test}}\approx \eqfn{E}_{\mathrm{train}}$.
+  \item \textbf{Ajuste óptimo} ($p\approx p^*$): $\eqfn{E}_{\mathrm{train}}$ pequeño, $\eqfn{E}_{\mathrm{test}}$ mínimo.
+  \item \textbf{Sobreajuste} ($p$ grande): $\eqfn{E}_{\mathrm{train}}\to0$, $\eqfn{E}_{\mathrm{test}}\gg \eqfn{E}_{\mathrm{train}}$.
+\end{itemize}
+
+\begin{fisicaconexion}{Dilema sesgo-varianza}
+En física de mediciones, el error total se descompone en error sistemático (sesgo, relacionado con la resolución) y error estadístico (varianza, relacionado con el ruido). Modelos con pocas bases tienen alto sesgo; modelos con muchas bases tienen alta varianza. La regularización de Tikhonov (Práctica 2) penaliza la norma de los parámetros, moviendo el equilibrio hacia valores intermedios.
+\end{fisicaconexion}
+
+\subsection*{Hacia la regularización: anticipo del Capítulo 2}
+\label{sec:regularizacion_preview}
+
+Cuando el número de condición de $\eqvec{A}$ es grande, pequeñas
+perturbaciones en $\eqk{\mathbf{y}}$ (ruido de medición, errores de
+redondeo) producen grandes variaciones en $\equ{\boldsymbol{\theta}^*}$
+(véase \Cref{thm:perturbacion}). La \textbf{regularización de Tikhonov}
+(también llamada \textit{ridge regression}) modifica la función de pérdida
+añadiendo una penalización sobre la norma de los parámetros:
+\[
+  \mathcal{L}_\lambda(\equ{\boldsymbol{\theta}}) \;=\;
+  \|\eqk{\mathbf{y}} - \eqvec{A}\equ{\boldsymbol{\theta}}\|_2^2
+  \;+\; \lambda\,\|\equ{\boldsymbol{\theta}}\|_2^2,
+  \quad \lambda > 0.
+\]
+Su solución es
+\[
+  \equ{\boldsymbol{\theta}^*_\lambda}
+  \;=\; (\eqvec{A}^\top\eqvec{A} + \lambda\mathbf{I})^{-1}\eqvec{A}^\top\eqk{\mathbf{y}},
+\]
+y tiene número de condición efectivo
+$\kappa_\lambda = (\sigma_1^2 + \lambda)/(\sigma_p^2 + \lambda)$, que
+disminuye monótonamente con $\lambda$. La Práctica 2 desarrolla esta
+relación con detalle, incluyendo la interpretación espectral via SVD y
+la conexión con la estimación MAP bajo prior gaussiano.
+
+% ---------------------------------------------------------------------------
+% MÉTODOS PROPUESTOS
+% ---------------------------------------------------------------------------
+\section*{Métodos propuestos}
+\label{sec:metodos}
+
+Los cuatro algoritmos siguientes cubren la implementación completa de la
+práctica. Se presentan en pseudocódigo independiente de lenguaje. Para una
+referencia algorítmica sobre las rutinas de álgebra lineal subyacentes,
+véanse \cite{golub2013matrix,trefethen1997numerical}.
+
+\subsection*{Construcción de la matriz de diseño}
+\label{sec:alg_diseno}
+
+\begin{algorithm}
+\caption{Construcción de la matriz de diseño $\mathbf{A}$}
+\label{alg:matriz_diseno}
+\KwIn{Puntos de entrenamiento $\{x_i\}_{i=1}^n$, número de bases $p$,
+  tipo de base (\texttt{monomial}, \texttt{fourier}, \texttt{rbf}),
+  parámetro $\sigma$ (solo para RBF), centros $\{c_j\}$ (solo para RBF)}
+\KwOut{Matriz de diseño $\mathbf{A} \in \mathbb{R}^{n \times p}$}
+\BlankLine
+Inicializar $\mathbf{A} \leftarrow \mathbf{0}_{n \times p}$\;
+\Switch{tipo de base}{
+  \Case{\texttt{monomial}}{
+    \For{$j = 1$ \KwTo $p$}{
+      $A_{ij} \leftarrow x_i^{j-1}$ \quad para todo $i$\;
+    }
+  }
+  \Case{\texttt{fourier}}{
+    $K \leftarrow (p-1)/2$ \tcp*{$p$ debe ser impar: $p=2K+1$}
+    $\omega_1 \leftarrow 2\pi/(b-a)$\;
+    $A_{i,1} \leftarrow 1$ \quad para todo $i$\;
+    \For{$k = 1$ \KwTo $K$}{
+      $A_{i,2k}   \leftarrow \cos(k\,\omega_1\,x_i)$ \quad para todo $i$\;
+      $A_{i,2k+1} \leftarrow \sin(k\,\omega_1\,x_i)$ \quad para todo $i$\;
+    }
+  }
+  \Case{\texttt{rbf gaussiana}}{
+    Distribuir $p$ centros equiespaciados: $c_j = a + (j-1)(b-a)/(p-1)$\;
+    \For{$j = 1$ \KwTo $p$}{
+      $A_{ij} \leftarrow \exp\!\bigl(-(x_i - c_j)^2 / (2\sigma^2)\bigr)$
+        \quad para todo $i$\;
+    }
+  }
+}
+\Return $\mathbf{A}$\;
+\end{algorithm}
+
+\subsection*{Ajuste por mínimos cuadrados vía SVD}
+\label{sec:alg_svd}
+
+\begin{algorithm}[H]
+\caption{Mínimos cuadrados estable por SVD}
+\label{alg:lsq_svd}
+\KwIn{Matriz de diseño $\mathbf{A} \in \mathbb{R}^{n \times p}$,
+  vector de datos $\mathbf{y} \in \mathbb{R}^n$}
+\KwOut{Parámetros $\boldsymbol{\theta}^* \in \mathbb{R}^p$,
+  número de condición $\kappa$, valores singulares $\boldsymbol{\sigma}$}
+\BlankLine
+Calcular la SVD thin: $\mathbf{A} = \hat{\mathbf{U}}\,\hat{\boldsymbol{\Sigma}}\,\mathbf{V}^\top$
+  \tcp*{$\hat{\mathbf{U}} \in \mathbb{R}^{n\times p}$,
+    $\hat{\boldsymbol{\Sigma}} = \mathrm{diag}(\sigma_1,\ldots,\sigma_p)$,
+    $\mathbf{V} \in \mathbb{R}^{p\times p}$}
+$\kappa \leftarrow \sigma_1 / \sigma_p$ \tcp*{número de condición, véase \Cref{def:numero_condicion}}
+$\mathbf{d} \leftarrow \hat{\mathbf{U}}^\top \mathbf{y}$
+  \tcp*{proyección de $\mathbf{y}$ sobre vectores singulares izquierdos}
+$\tilde{\mathbf{d}} \leftarrow d_j / \sigma_j$ \quad para todo $j$
+  \tcp*{división elemento a elemento}
+$\boldsymbol{\theta}^* \leftarrow \mathbf{V}\,\tilde{\mathbf{d}}$
+  \tcp*{transformación al espacio de parámetros, véase \Cref{prop:pseudoinversa}}
+\Return $\boldsymbol{\theta}^*$, $\kappa$, $(\sigma_1,\ldots,\sigma_p)$\;
+\end{algorithm}
+
+\subsection*{Cálculo de métricas de error}
+\label{sec:alg_error}
+
+\begin{algorithm}[H]
+\caption{Evaluación de métricas de error}
+\label{alg:metricas}
+\KwIn{Parámetros ajustados $\boldsymbol{\theta}^*$, matriz de prueba
+  $\mathbf{A}_{\mathrm{test}}$, valores de referencia $\mathbf{y}_{\mathrm{test}}$}
+\KwOut{RMSE, MAE, $E_\infty$, $E_{\mathrm{rel}}$}
+\BlankLine
+$\hat{\mathbf{y}} \leftarrow \mathbf{A}_{\mathrm{test}}\,\boldsymbol{\theta}^*$
+  \tcp*{predicción del modelo}
+$\mathbf{r} \leftarrow \hat{\mathbf{y}} - \mathbf{y}_{\mathrm{test}}$
+  \tcp*{vector de residuos}
+$n_t \leftarrow$ longitud de $\mathbf{y}_{\mathrm{test}}$\;
+$\mathrm{RMSE} \leftarrow \|\mathbf{r}\|_2 / \sqrt{n_t}$\;
+$\mathrm{MAE}  \leftarrow \|\mathbf{r}\|_1 / n_t$\;
+$E_\infty      \leftarrow \|\mathbf{r}\|_\infty$\;
+$E_{\mathrm{rel}} \leftarrow \|\mathbf{r}\|_2 / \|\mathbf{y}_{\mathrm{test}}\|_2$\;
+\Return RMSE, MAE, $E_\infty$, $E_{\mathrm{rel}}$\;
+\end{algorithm}
+
+\subsection*{Experimento de sobreajuste: barrido en $p$}
+\label{sec:alg_barrido}
+
+\begin{algorithm}[H]
+\caption{Curva de error en función del número de bases $p$}
+\label{alg:barrido_p}
+\KwIn{Datos de entrenamiento $\{(x_i, y_i)\}_{i=1}^n$, datos de prueba
+  $\{(x_i^\prime, y_i^\prime)\}_{i=1}^{n_t}$, rango de $p$: $[p_{\min}, p_{\max}]$,
+  tipo de base, parámetro $\sigma$ (RBF)}
+\KwOut{Vectores $\boldsymbol{\kappa}$, $\mathbf{E}_{\mathrm{train}}$,
+  $\mathbf{E}_{\mathrm{test}}$ en función de $p$}
+\BlankLine
+Inicializar listas vacías para $\kappa(p)$, $E_{\mathrm{train}}(p)$, $E_{\mathrm{test}}(p)$\;
+\For{$p = p_{\min}$ \KwTo $p_{\max}$}{
+  $\mathbf{A}_{\mathrm{train}} \leftarrow$ \textsc{MatrizDiseño}($\{x_i\}$, $p$, base, $\sigma$) \tcp*{Alg.~\ref{alg:matriz_diseno}}
+  $\boldsymbol{\theta}^*, \kappa, \cdot \leftarrow$ \textsc{MínCuadSVD}($\mathbf{A}_{\mathrm{train}}, \mathbf{y}$) \tcp*{Alg.~\ref{alg:lsq_svd}}
+  $E_{\mathrm{train}} \leftarrow$ \textsc{Métricas}($\boldsymbol{\theta}^*, \mathbf{A}_{\mathrm{train}}, \mathbf{y}$).RMSE \tcp*{Alg.~\ref{alg:metricas}}
+  $\mathbf{A}_{\mathrm{test}} \leftarrow$ \textsc{MatrizDiseño}($\{x_i^\prime\}$, $p$, base, $\sigma$)\;
+  $E_{\mathrm{test}} \leftarrow$ \textsc{Métricas}($\boldsymbol{\theta}^*, \mathbf{A}_{\mathrm{test}}, \mathbf{y}_{\mathrm{test}}$).RMSE\;
+  Registrar $\kappa$, $E_{\mathrm{train}}$, $E_{\mathrm{test}}$ para este $p$\;
+}
+\Return $\boldsymbol{\kappa}(p)$, $\mathbf{E}_{\mathrm{train}}(p)$, $\mathbf{E}_{\mathrm{test}}(p)$\;
+\end{algorithm}
+
+% ---------------------------------------------------------------------------
+% EXPERIMENTOS NUMÉRICOS
+% ---------------------------------------------------------------------------
+\section*{Experimentos numéricos}
+\addcontentsline{toc}{section}{Experimentos numéricos}
+\label{sec:experimentos}
+
+\subsection*{Configuración general}
+\addcontentsline{toc}{subsection}{Configuración general}
+\label{sec:config}
+
+\paragraph{Funciones de prueba.}
+Se utilizan tres funciones con distinta regularidad para evaluar el comportamiento de las bases:
+
+\begin{itemize}[nosep, leftmargin=1.5em]
+  \item \textbf{Función periódica suave:}
+    \[
+      \eqfn{f}_1(\eqk{t}) = \cos\!\left(\eqcon{\omega_0}\,\eqk{t} + \tfrac{\pi}{4}\right),
+      \qquad \eqk{t} \in [0, 2\pi],\ \eqcon{\omega_0}=1.
+    \]
+    Es analítica y periódica. Benigna para Fourier, peligrosa para monomios de grado alto.
+
+  \item \textbf{Función de Runge (analítica con polos próximos):}
+    \[
+      \eqfn{f}_2(\eqk{x}) = \frac{1}{1+25\eqk{x}^2},
+      \qquad \eqk{x} \in [-1,1].
+    \]
+    Tiene polos en $\pm i/5$; desencadena el fenómeno de Runge en puntos equiespaciados.
+
+  \item \textbf{Función valor absoluto (continua no diferenciable):}
+    \[
+      \eqfn{f}_3(\eqk{x}) = |\eqk{x}|,
+      \qquad \eqk{x} \in [-1,1].
+    \]
+    Es continua pero no diferenciable en $\eqk{x}=0$; limita la convergencia de Fourier a $O(p^{-1})$ (fenómeno de Gibbs).
+\end{itemize}
+
+\paragraph{Parámetros fijos.}
+\begin{itemize}[nosep, leftmargin=1.5em]
+  \item \textbf{Puntos de entrenamiento:} $n = 80$ puntos equiespaciados en el dominio correspondiente.
+  \item \textbf{Puntos de prueba:} $n_{\mathrm{test}} = 500$ puntos uniformemente distribuidos en el mismo dominio, generados \emph{antes} de cualquier ajuste y no modificados posteriormente.
+  \item \textbf{Número de parámetros \(p\) (común para las tres bases):}
+    \[
+      p \in \{3, 5, 7, 9, 11, 13, 15, 17, 19, 21\}.
+    \]
+    (Para Fourier, \(p\) debe ser impar; esta secuencia lo cumple. Para monomios y RBF no hay restricción.)
+  \item \textbf{Ruido de observación:} En la Parte A se fija $\eqk{\varepsilon_i}=0$ (sin ruido). En la Parte B se añade ruido gaussiano blanco aditivo $\eqk{\varepsilon_i} \sim \mathcal{N}(0,\sigma_\varepsilon^2)$ con $\sigma_\varepsilon \in \{0.05, 0.1, 0.2\}$.
+\end{itemize}
+
+\paragraph{Métricas registradas.}
+Para cada experimento (combinación de base, función y \(p\)) se almacenan:
+\begin{itemize}[nosep, leftmargin=1.5em]
+  \item RMSE de entrenamiento y de prueba.
+  \item Error máximo $E_\infty$ en prueba.
+  \item Número de condición $\kappa_2(\mathbf{A})$ obtenido vía SVD (\Cref{prop:cond_svd}).
+  \item Norma de los parámetros $\|\boldsymbol{\theta}^*\|_2$.
+\end{itemize}
+
+%─────────────────────────────────────────────────────────────────────
+%─────────────────────────────────────────────────────────────────────
+\subsection*{Parte A — Aproximación sin ruido}
+\addcontentsline{toc}{subsection}{Parte A: Aproximación sin ruido}
+\label{sec:parteA}
+
+En esta parte se fija \(\eqk{\varepsilon_i}=0\) (sin ruido). El error de prueba refleja exclusivamente la capacidad de representación de cada base. El objetivo es determinar el número óptimo de parámetros \(p^*\) para cada combinación (base, función) y analizar la evolución del número de condición \(\kappa(\mathbf{A})\).
+
+\begin{ejerciciocomp}{Barrido en \(p\): errores, condición y espectro}
+\label{ej:barrido_sinruido}
+\dificultad{3}{2}
+
+Para cada una de las nueve combinaciones (tres bases \(\times\) tres funciones), siga estos pasos:
+
+\begin{enumerate}[leftmargin=2em, label=\alph*)]
+  \item Construya la matriz de diseño \(\mathbf{A}_{\mathrm{train}}\) (\Cref{alg:matriz_diseno}), resuelva mediante SVD (\Cref{alg:lsq_svd}) y calcule las métricas de error (\Cref{alg:metricas}) sobre los conjuntos de entrenamiento y prueba. 
+  \item Genere las siguientes gráficas:
+    \begin{itemize}[nosep, leftmargin=1.5em]
+      \item Curvas \(E_{\mathrm{train}}(p)\) y \(E_{\mathrm{test}}(p)\) en escala log–log (o semilog), junto con \(\log_{10}\kappa(p)\).
+      \item Para la base de Fourier aplicada a \(f_3\), grafique \(\log E_{\mathrm{test}}\) vs. \(\log p\) y estime la tasa de convergencia algebraica \(\hat{\alpha}\) mediante el estimador de dos puntos (\Cref{def:tasa_conv}). Compare con el valor teórico \(\alpha = 1\).
+      \item Espectro de valores singulares \(\sigma_k\) vs. \(k\) (escala log en \(y\)) para las tres bases con \(p = 15\); verifique que \(\sigma_1/\sigma_p = \kappa(\mathbf{A})\).
+    \end{itemize}
+  \item Identifique \(p^*\) como el valor que minimiza \(E_{\mathrm{test}}\) para cada combinación. Anote \(\kappa(p^*)\).
+\end{enumerate}
+
+Elabore la \textbf{tabla resumen A} (\(3\times 3\)) que reporte el par \((p^*,\, \kappa(p^*))\) para cada combinación base–función. Esta tabla es el núcleo de la Parte A y permite responder: ¿\(p^*\) depende de la base, de la función o de la interacción entre ambas?
+
+\end{ejerciciocomp}
+
+\begin{observacion}{Norma de parámetros como indicador de sobreajuste}
+Observe la evolución de \(\|\boldsymbol{\theta}^*\|_2\) al superar \(p^*\). En la base monomial aplicada a \(f_2\) (Runge), los coeficientes crecen en magnitud y alternan signo para cancelar términos enormes, produciendo una solución numéricamente inestable y sin sentido físico. Este comportamiento motiva directamente la penalización \(\lambda\|\boldsymbol{\theta}\|_2^2\) que se introducirá en la Práctica 2 (regularización de Tikhonov).
+\end{observacion}
+
+%─────────────────────────────────────────────────────────────────────
+\subsection*{Parte B — Regresión con ruido}
+\addcontentsline{toc}{subsection}{Parte B: Regresión con ruido}
+\label{sec:parteB}
+
+Se añade ruido gaussiano blanco aditivo $\varepsilon_i \sim \mathcal{N}(0, \sigma_\varepsilon^2)$ a las ordenadas de entrenamiento. Los datos de prueba se mantienen sin ruido. El objetivo es estudiar cómo el ruido afecta el punto óptimo $p^*$ y la estabilidad de la solución.
+
+\begin{ejerciciocomp}{Efecto del ruido sobre el ajuste óptimo}
+\label{ej:ruido}
+\dificultad{3}{2}
+
+Para cada base y cada función de prueba, realice los siguientes experimentos:
+
+\begin{enumerate}[leftmargin=2em, label=\alph*)]
+  \item Fije $p = p^*$ (obtenido en la Parte A) y barra $\sigma_\varepsilon \in \{0.05,\,0.1,\,0.2\}$. Para cada nivel de ruido, calcule $E_{\mathrm{train}}$ y $E_{\mathrm{test}}$.
+  \item Fije $\sigma_\varepsilon = 0.1$ y repita el barrido completo en $p$ para las tres bases sobre la función $f_2$ (Runge). Genere una gráfica que superponga $E_{\mathrm{test}}(p)$ con ruido y sin ruido. Identifique el nuevo $p^*_{\mathrm{ruido}}$.
+  \item Para la base monomial y $f_2$, grafique las curvas ajustadas en dos casos: (i) $p = p^*$ (sin ruido) y (ii) $p = p^*_{\mathrm{ruido}}$ (con ruido). Incluya en la misma figura los datos ruidosos de entrenamiento.
+  \item Para las tres bases y $f_2$, registre la evolución de $\|\boldsymbol{\theta}^*\|_2$ en función de $p$ (con y sin ruido, $\sigma_\varepsilon=0.1$).
+\end{enumerate}
+
+Elabore la \textbf{tabla resumen B} (3 filas, una por base) que contenga:
+\begin{itemize}[nosep, leftmargin=1.5em]
+  \item $p^*$ (sin ruido, de la Parte A),
+  \item $p^*_{\mathrm{ruido}}$ para $\sigma_\varepsilon=0.1$,
+  \item la razón $\|\boldsymbol{\theta}^*\|_2^{\text{ruido}} / \|\boldsymbol{\theta}^*\|_2^{\text{limpio}}$ evaluada en $p = p^*$ (sin ruido).
+\end{itemize}
+\end{ejerciciocomp}
+
+
+%─────────────────────────────────────────────────────────────────────
+\subsection*{Parte C — Efecto de $\sigma$ en RBF (opcional)}
+\addcontentsline{toc}{subsection}{Parte C: Efecto de $\sigma$ en RBF (opcional)}
+\label{sec:parteC}
+
+\begin{ejerciciocomp}{Variación del ancho de banda en RBF gaussiana}
+\label{ej:sigma_rbf}
+\dificultad{4}{3}
+
+Fije $f_2(x)$ (Runge), $p = 20$, $n = 80$, $\sigma_\varepsilon = 0.1$ (ruido). Barra $\sigma \in \{0.05,\,0.1,\,0.2,\,0.4,\,0.8,\,1.6\}$ y realice:
+
+\begin{enumerate}[leftmargin=2em, label=\alph*)]
+  \item Para cada $\sigma$, calcule $\kappa(\mathbf{A})$, $E_{\mathrm{train}}$ y $E_{\mathrm{test}}\). Grafique $\kappa(\sigma)$ y $E_{\mathrm{test}}(\sigma)$ en ejes bi-logarítmicos. Identifique si existe un $\sigma^*$ que minimice $E_{\mathrm{test}}$.
+  \item Repita el barrido en $\sigma$ para $p \in \{10, 20, 40\}$. En una misma figura, superponga las curvas $E_{\mathrm{test}}(\sigma)$ para los tres valores de $p$. Analice cómo se desplaza $\sigma^*$ al aumentar $p$ y compárelo con el espaciado entre centros $(b-a)/(p-1)$.
+  \item (Opcional) Interprete el barrido en $\sigma$ como un barrido en tiempo de difusión (núcleo de calor). Comente la relación con el proceso directo de los modelos de difusión (Prácticas 9--10).
+\end{enumerate}
+
+\end{ejerciciocomp}
+
+% ---------------------------------------------------------------------------
+% RESULTADOS
+% ---------------------------------------------------------------------------
+\section*{Resultados}
+\addcontentsline{toc}{section}{Resultados}
+\label{sec:resultados}
+
+\textit{En esta sección se presentan los resultados obtenidos en los experimentos. Las tablas y figuras deben completarse con los valores y gráficas generados durante la práctica.}
+
+% ===========================================================================
+% Parte A — Aproximación sin ruido
+% ===========================================================================
+\subsection*{Parte A — Aproximación sin ruido}
+
+\subsubsection*{Tabla resumen de parámetros óptimos}
+
+La \Cref{tab:resumen_A} muestra, para cada combinación de base y función de prueba, el número de parámetros \(p^*\) que minimiza el error de prueba \(E_{\mathrm{test}}\) y el número de condición \(\kappa(\mathbf{A}_{\mathrm{train}})\) evaluado en ese punto.
+
+\begin{acadtable}{tab:resumen_A}{Valor óptimo \(p^*\) y \(\kappa(p^*)\) para cada base y función (sin ruido).}
+  \begin{tabular}{lccc}
+    \toprule
+    \headerrow
+    \textbf{Base} & $f_1$ (coseno) & $f_2$ (Runge) & $f_3$ ($|x|$) \\
+    \midrule
+    Monomios        & ([dato], [dato]) & ([dato], [dato]) & ([dato], [dato]) \\
+    Fourier         & ([dato], [dato]) & ([dato], [dato]) & ([dato], [dato]) \\
+    RBF ($\sigma=0.2$) & ([dato], [dato]) & ([dato], [dato]) & ([dato], [dato]) \\
+    \bottomrule
+  \end{tabular}
+\end{acadtable}
+
+\subsubsection*{Figuras}
+
+A continuación se listan las figuras que deben incluirse en esta subsección. Cada figura debe estar correctamente etiquetada, con ejes nombrados y, cuando corresponda, leyenda y escala logarítmica.
+
+\begin{enumerate}[leftmargin=2em, label=\textbf{G\arabic*.}]
+  \item \textbf{Curvas de error de prueba y entrenamiento} para la función \(f_2\) (Runge):
+    \begin{itemize}
+      \item Gráfica de \(E_{\mathrm{train}}(p)\) y \(E_{\mathrm{test}}(p)\) en escala log–log (o semilog) para las tres bases, en un mismo panel.
+      \item Marcar el valor \(p^*\) donde \(E_{\mathrm{test}}\) alcanza su mínimo para cada base.
+    \end{itemize}
+  \item \textbf{Número de condición en función de \(p\)} para la función \(f_2\):
+    \begin{itemize}
+      \item Gráfica de \(\log_{10}\kappa(p)\) frente a \(p\) (escala semilog) para las tres bases.
+    \end{itemize}
+  \item \textbf{Espectro de valores singulares} para \(p = 15\):
+    \begin{itemize}
+      \item Gráfica de \(\sigma_k\) (en escala log) vs. \(k\) para las tres bases.
+      \item Verificar que \(\sigma_1/\sigma_p = \kappa(\mathbf{A})\).
+    \end{itemize}
+  \item \textbf{Tasa de convergencia de Fourier para \(f_3\)}:
+    \begin{itemize}
+      \item Gráfica de \(\log E_{\mathrm{test}}\) vs. \(\log p\).
+      \item Incluir la recta de referencia con pendiente \(\alpha = 1\) y estimar la pendiente empírica \(\hat{\alpha}\).
+    \end{itemize}
+  \item \textbf{Evolución de la norma de los parámetros} (opcional, pero recomendada):
+    \begin{itemize}
+      \item Gráfica de \(\|\boldsymbol{\theta}^*\|_2\) frente a \(p\) para la base monomial aplicada a \(f_2\).
+    \end{itemize}
+\end{enumerate}
+
+\subsection*{Parte B — Regresión con ruido}
+
+\subsubsection*{Tabla resumen del efecto del ruido}
+
+La \Cref{tab:resumen_B} recoge, para cada base y para la función \(f_2\) (Runge), el número óptimo de parámetros sin ruido (\(p^*\), de la Parte A), el óptimo bajo ruido \(\sigma_\varepsilon = 0.1\) (\(p^*_{\text{ruido}}\)), y el cociente entre la norma de los parámetros con ruido y sin ruido evaluado en \(p = p^*\) (sin ruido).
+
+\begin{acadtable}{tab:resumen_B}{Resumen del efecto del ruido (\(\sigma_\varepsilon=0.1\)) sobre \(p^*\) y la norma de los parámetros para \(f_2\).}
+  \begin{tabular}{lccc}
+    \toprule
+    \headerrow
+    \textbf{Base} & \(p^*\) (sin ruido) & \(p^*_{\text{ruido}}\) & \(\|\theta\|_{\text{ruido}} / \|\theta\|_{\text{limpio}}\) \\
+    \midrule
+    Monomios        & [dato] & [dato] & [dato] \\
+    Fourier         & [dato] & [dato] & [dato] \\
+    RBF (\( \sigma=0.2 \)) & [dato] & [dato] & [dato] \\
+    \bottomrule
+  \end{tabular}
+\end{acadtable}
+
+\subsubsection*{Figuras}
+
+Incluya las siguientes gráficas, generadas a partir de sus experimentos con ruido:
+
+\begin{enumerate}[leftmargin=2em, label=\textbf{B\arabic*.}]
+  \item \textbf{Curvas de error de prueba con y sin ruido} para la función \(f_2\) (Runge) y \(\sigma_\varepsilon = 0.1\):
+    \begin{itemize}
+      \item Superposición de \(E_{\mathrm{test}}(p)\) para el caso sin ruido (Parte A) y con ruido, para las tres bases.
+      \item Marcar \(p^*\) y \(p^*_{\text{ruido}}\) en cada curva.
+    \end{itemize}
+  \item \textbf{Curvas ajustadas del modelo} para la base monomial sobre \(f_2\):
+    \begin{itemize}
+      \item En una misma figura, represente los datos ruidosos de entrenamiento (puntos) y las predicciones del modelo para:
+        \begin{itemize}
+          \item \(p = p^*\) (sin ruido, ajustado con datos limpios),
+          \item \(p = p^*_{\text{ruido}}\) (ajustado con datos ruidosos).
+        \end{itemize}
+      \item Incluya también la función exacta \(f_2(x)\) como referencia.
+    \end{itemize}
+  \item \textbf{Evolución de la norma de los parámetros} para \(f_2\):
+    \begin{itemize}
+      \item Gráfica de \(\|\boldsymbol{\theta}^*\|_2\) en función de \(p\) para el caso sin ruido y con ruido (\(\sigma_\varepsilon = 0.1\)), para las tres bases.
+    \end{itemize}
+\end{enumerate}
+
+\subsection*{Parte C — Influencia de $\sigma$ en RBF (opcional)}
+
+\subsubsection*{Tabla resumen del efecto de $\sigma$}
+
+La \Cref{tab:resumen_C} muestra, para la función \(f_2\) (Runge) con \(p=20\) y ruido \(\sigma_\varepsilon = 0.1\), el número de condición \(\kappa(\mathbf{A})\) y el error de prueba \(E_{\mathrm{test}}\) para los distintos valores del ancho de banda \(\sigma\). Si se ha explorado \(p \in \{10,20,40\}\), se debe incluir una tabla similar para cada valor de \(p\) o una tabla combinada.
+
+\begin{acadtable}{tab:resumen_C}{Resultados para la RBF gaussiana (\(f_2\), \(p=20\), \(\sigma_\varepsilon=0.1\)) en función de \(\sigma\).}
+  \begin{tabular}{c c c}
+    \toprule
+    \headerrow
+    \(\sigma\) & \(\kappa(\mathbf{A})\) & \(E_{\mathrm{test}}\) \\
+    \midrule
+    0.05  & [dato] & [dato] \\
+    0.1   & [dato] & [dato] \\
+    0.2   & [dato] & [dato] \\
+    0.4   & [dato] & [dato] \\
+    0.8   & [dato] & [dato] \\
+    1.6   & [dato] & [dato] \\
+    \bottomrule
+  \end{tabular}
+\end{acadtable}
+
+\subsubsection*{Figuras}
+
+Incluya las siguientes gráficas, generadas a partir de sus experimentos:
+
+\begin{enumerate}[leftmargin=2em, label=\textbf{C\arabic*.}]
+  \item \textbf{Curvas de error y número de condición en función de \(\sigma\)} para \(p=20\):
+    \begin{itemize}
+      \item Gráfica bi-logarítmica de \(E_{\mathrm{test}}(\sigma)\).
+      \item Gráfica bi-logarítmica de \(\kappa(\sigma)\).
+    \end{itemize}
+  \item \textbf{Comparación para distintos \(p\)} (si se realizó):
+    \begin{itemize}
+      \item Superposición de las curvas \(E_{\mathrm{test}}(\sigma)\) para \(p = 10, 20, 40\) en una misma gráfica bi-logarítmica.
+      \item Marcar el valor \(\sigma^*\) que minimiza \(E_{\mathrm{test}}\) en cada curva.
+    \end{itemize}
+\end{enumerate}
+
+% ---------------------------------------------------------------------------
+% DISCUSIÓN
+% ---------------------------------------------------------------------------
+\section*{Discusión}
+\addcontentsline{toc}{section}{Discusión}
+\label{sec:discusion}
+
+\textit{Responde de forma concisa (uno o dos párrafos por cada concepto) utilizando valores concretos de tus tablas y figuras.}
+
+\paragraph*{1. Condicionamiento y pérdida de precisión numérica.}
+Con base en la tabla de barrido (por ejemplo, para la base monomial), identifica a partir de qué \(p\) se cumple \(\kappa > 10^{10}\). ¿Cuántos dígitos significativos se pierden en doble precisión? ¿El deterioro de \(E_{\mathrm{test}}\) coincide con ese umbral?
+
+\paragraph*{2. Dependencia del punto óptimo \(p^*\) respecto a la base y la función.}
+Usando la Tabla resumen A, explica si \(p^*\) cambia más al variar la base o al variar la función. Cita al menos dos casos concretos donde para una misma función \(p^*\) sea muy diferente entre dos bases, o para una misma base \(p^*\) sea muy diferente entre dos funciones.
+
+\paragraph*{3. Efecto del ruido: desplazamiento de \(p^*\) e inflación de \(\|\boldsymbol{\theta}^*\|_2\).}
+A partir de la Tabla resumen B, describe cómo se desplaza \(p^*\) al añadir ruido (\(\sigma_\varepsilon=0.1\)) para cada base. Relaciona el desplazamiento con el cociente \(\|\boldsymbol{\theta}^*\|_2^{\text{ruido}} / \|\boldsymbol{\theta}^*\|_2^{\text{limpio}}\). Conecta este comportamiento con la regularización de Tikhonov (penalización \(\lambda\|\boldsymbol{\theta}\|_2^2\)).
+
+\paragraph*{4. Tasa de convergencia de Fourier para \(f_3\) (y efecto del ruido).}
+Para \(f_3(x)=|x|\) ajustada con Fourier (sin ruido), estima la tasa \(\hat{\alpha}\) usando el estimador de dos puntos (Apéndice A). Compara con \(\alpha=1\). Si añades ruido, comenta si la tasa se degrada y por qué (relación señal/ruido en coeficientes de alta frecuencia).
+
+\paragraph*{Nota:} Si realizaste la Parte C (RBF y variación de \(\sigma\)), añade un breve comentario sobre la existencia de un \(\sigma^*\) que minimiza \(E_{\mathrm{test}}\) y su relación con el espaciado entre centros.
+
+% ---------------------------------------------------------------------------
+% CONCLUSIONES
+% ---------------------------------------------------------------------------
+\section*{Conclusiones}
+\addcontentsline{toc}{section}{Conclusiones}
+\label{sec:conclusiones}
+
+\textit{Redacta cuatro párrafos siguiendo esta estructura. Apoya cada afirmación en valores concretos de tus tablas y figuras.}
+
+\paragraph*{1. Idoneidad de cada base según la función.}
+Compara el rendimiento de las tres bases para cada función de prueba. Explica por qué la base de Fourier es especialmente eficaz para la función periódica \(f_1\) (ortogonalidad, bajo número de condición), mientras que la base monomial sufre inestabilidad para grados altos, especialmente en \(f_2\) (Runge) y \(f_3\) (valor absoluto). Comenta el papel de la regularidad de la función y de la propiedad de ortogonalidad (o su ausencia) en los resultados obtenidos.
+
+\paragraph*{2. El número de condición como indicador anticipado del colapso numérico.}
+Describe cómo evoluciona \(\kappa(\mathbf{A})\) al aumentar \(p\) para cada base. Señala a partir de qué valor de \(p\) el número de condición supera \(10^{10}\) (o \(10^{12}\)) y relaciona ese umbral con la pérdida de dígitos significativos en doble precisión. ¿El deterioro del error de prueba coincide con ese umbral? Utiliza los valores de tu tabla de barrido (por ejemplo, para \(f_2\)) para respaldar tu respuesta.
+
+\paragraph*{3. Efecto del ruido: desplazamiento de \(p^*\) e inflación de la norma de los parámetros.}
+A partir de la Tabla resumen B, indica cómo se desplaza \(p^*\) al añadir ruido (\(\sigma_\varepsilon = 0.1\)) en cada base. Relaciona el desplazamiento con el cociente \(\|\boldsymbol{\theta}^*\|_2^{\text{ruido}} / \|\boldsymbol{\theta}^*\|_2^{\text{limpio}}\). Explica por qué un valor grande de este cociente indica sobreajuste y cómo la regularización de Tikhonov (\(\lambda\|\boldsymbol{\theta}\|_2^2\)) puede controlar este efecto.
+
+\paragraph*{4. Preguntas abiertas y transición a la siguiente práctica.}
+Señala las limitaciones del enfoque actual: no existe un criterio automático para elegir \(p\) sin conocer \(f^*\), y el mal condicionamiento exige una estabilización. ¿Cómo se puede controlar la norma de los parámetros sin sacrificar el ajuste? Estas preguntas motivan la introducción de la regularización de Tikhonov, que se estudiará en la Práctica 2, donde se interpretará espectralmente mediante la SVD y se conectará con la estimación MAP bajo prior gaussiana.
+
+% ---------------------------------------------------------------------------
+% NOTAS BIBLIOGRÁFICAS
+% ---------------------------------------------------------------------------
+\begin{notasbib}
+Los modelos lineales en parámetros y la solución por mínimos cuadrados se
+tratan en el Capítulo~1 de \textit{La máquina estocástica}. La presentación
+clásica de la interpolación polinomial y el fenómeno de Runge se encuentra
+en \textcite{trefethen2019approximation}, cuya versión en MATLAB/Chebfun es
+de acceso abierto. El condicionamiento de la matriz de Vandermonde se
+analiza con detalle en \textcite{gautschi2012numerical}, donde se discuten
+también las bases polinomiales ortogonales (Legendre, Chebyshev) que
+resuelven el problema de condicionamiento a costa de mayor complejidad
+de implementación. La teoría de RBF se desarrolla en \textcite{wendland2004scattered},
+incluyendo la demostración de que las RBF multicuadráticas producen
+sistemas lineales con número de condición controlable. La convergencia
+espectral de las series de Fourier y la relación entre regularidad y tasa de
+convergencia se tratan exhaustivamente en \textcite{trefethen1997numerical}
+(Lectures 1--4). Para el tratamiento estadístico del dilema sesgo-varianza
+y la conexión con regularización, el texto de referencia es el Capítulo~3
+de \textcite{bishop2006pattern}. Las métricas de error computacional y el
+análisis de número de condición se detallan en el \Cref{ap:herramientas}
+de este compendio, con referencias primarias a \textcite{golub2013matrix}
+y \textcite{higham2002accuracy}.
+\end{notasbib}
+
+\printbibliography[heading=subbibliography,title={Referencias}]
