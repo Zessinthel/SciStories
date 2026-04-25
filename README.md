@@ -1,238 +1,479 @@
-# latex-catppuccin-academic
+# story-template: Historias científicas verticales 9:16
 
-A modular LaTeX template for academic documents — lecture notes, theses, technical reports — styled with the [Catppuccin](https://catppuccin.com) color palette.
+Template minimalista para publicar historias científicas en redes sociales (Instagram Stories, TikTok, Pinterest). Verticales, tipográficamente densas, con énfasis en ecuaciones y figuras. Motor: pdfLaTeX + tcbposter.
 
-Built for computational physics: mathematics, stochastic processes, machine learning, and numerical methods. Every visual element — theorems, equations, tables, algorithms, code listings, plots — follows the Catppuccin palette coherently and adapts automatically when switching between flavors.
+**Filosofía**: las redes sociales recortan los bordes. Este template respeta una zona segura garantizada (columnas 2-11, filas 3-22) para que el contenido crítico nunca sea cortado. Usa principios editoriales japoneses (Ma, balance asimétrico, whitespace) + paleta grayscale Catppuccin.
 
-![Preview](figs/preview.png)
+---
 
-## Features
+## Quick Start
 
-### Theming
+### 1. Clonar y preparar
+```bash
+git clone <repo> && cd story-template
+```
 
-- **Full Catppuccin palette** across all elements: titles, hyperlinks, code listings, algorithms, `tcolorbox` environments, `pgfplots` graphs, table headers, and captions. All follow the [Catppuccin style guide](https://catppuccin.com/style-guide).
-- **Four flavors**: Latte (light), Frappé, Macchiato, Mocha (dark). Switch by changing one line in `themes/catppuccin-palette.tex`.
-- **Dark theme support**: a `\darktheme` toggle automatically adjusts page color, text color, and tcolorbox backgrounds (`CtpBase`-relative instead of `white`-relative) for correct rendering in dark flavors.
-- **Custom theme fallback**: `themes/custom-theme.tex` for non-Catppuccin color schemes using the same semantic color names.
+### 2. Editar contenido
+Abre `story-content.tex` y reemplaza las 11 macros:
 
-### Semantic equation coloring
+```latex
+\providecommand{\StoryTitle}{Tu título aquí}
+\providecommand{\StoryEquation}{e^{i\pi} + 1 = 0}  % ecuación principal
+\providecommand{\StoryFigure}{\includegraphics[width=0.9\linewidth]{figs/chart.pdf}}
+\providecommand{\StoryBody}{Párrafo de 1-2 líneas (7.5pt).}
+```
 
-A three-axis system for color-coding equations by meaning, not appearance (`config/equation-styles.tex`):
+### 3. Compilar
+```bash
+pdflatex main-story.tex
+pdflatex main-story.tex  # segunda pasada (TikZ)
+```
 
-- **Axis 1 — Syntactic role** (stable across contexts): `\eqop` (operators), `\eqfn` (functions), `\eqdm` (differentials), `\eqdom` (domains).
-- **Axis 2 — Epistemic status** (the dimension typography *cannot* encode): `\equ` (unknown/sought), `\eqk` (known/data), `\eqcon` (universal constants). In `f(x;θ)`, physics treats `x` as unknown and `θ` as data; ML inverts this. The color makes the inversion explicit.
-- **Axis 3 — Mathematical type** (subtle reinforcement): `\eqvec` (vectors), `\eqten` (tensors/matrices).
-- **Compound macros**: `\eqpdv`, `\eqgrad`, `\eqdvg`, `\eqSDE` for common patterns.
-- **Global toggle**: `\eqcolorsfalse` disables all equation coloring for B/W printing.
+### 4. Exportar a SVG (opcional, para edición posterior)
+```bash
+inkscape main-story.pdf -o story-001.svg
+```
 
-### Tables
+Output: `main-story.pdf` (13.5cm × 24cm, 300 DPI recomendado).
 
-Comprehensive table system (`config/tables-config.tex`) with three overflow strategies:
+---
 
-- **Prevention**: `tabularx` with custom column types `Y` (centered) and `Z` (right-aligned), all vertically centered via `m{}` columns.
-- **Correction**: `fittable` environment that measures width and rescales only if needed.
-- **Precision**: fixed-width columns `L{w}`, `C{w}`, `R{w}` with automatic text wrapping.
-- **Styling**: `\headerrow` for colored headers, `\rowcolor{tablerowalt}` for alternating rows, `\thead` for bold header text, `\tablenote` for footnotes. Automatic `\arrayrulecolor` from the theme.
-- **Numerical alignment**: `siunitx` S-columns for decimal-aligned data with SI units.
-- **Spanish**: `Cuadro` renamed to `Tabla` automatically.
-
-### Code listings (10 languages)
-
-Syntax highlighting for ten languages (`config/listings-catppuccin.tex`), each with full keyword classification mapped to Catppuccin colors:
-
-| Language    | Style name    | Keywords | Builtins | Types | Functions | Modules | Macros |
-|-------------|---------------|:--------:|:--------:|:-----:|:---------:|:-------:|:------:|
-| Python      | `python`      | ✓        | ✓        | ✓     | ✓         | ✓       | ✓      |
-| C           | `c`           | ✓        | ✓        | ✓     | ✓         | —       | ✓      |
-| C++         | `cpp`         | ✓        | ✓        | ✓     | ✓         | ✓       | —      |
-| Rust        | `rust`        | ✓        | ✓        | ✓     | ✓         | ✓       | ✓      |
-| Go          | `go`          | ✓        | ✓        | ✓     | ✓         | ✓       | —      |
-| Julia       | `julia`       | ✓        | ✓        | ✓     | ✓         | ✓       | ✓      |
-| MATLAB      | `matlab`      | ✓        | ✓        | ✓     | ✓         | ✓       | —      |
-| Fortran     | `fortran`     | ✓        | ✓        | ✓     | ✓         | ✓       | ✓      |
-| x86-64 ASM  | `asm`         | ✓        | ✓        | ✓     | ✓         | —       | ✓      |
-| Mathematica | `mathematica` | ✓        | ✓        | ✓     | ✓         | ✓       | —      |
-
-Color mapping follows the Catppuccin style guide: keywords → Mauve, builtins → Red, strings → Green, comments → Overlay2 (italic), types → Yellow, functions → Blue, modules → Teal, macros → Rosewater.
-
-Full UTF-8 support via `literate` mappings (Spanish accents, Greek letters, mathematical symbols).
-
-### Plots
-
-`pgfplots` configuration (`config/pgfplots-config.tex`) with:
-
-- **Cycle list**: 8 distinguishable Catppuccin colors with unique markers per curve.
-- **Axis styles**: `catppuccin-clean` (publication-ready) and `catppuccin-filled` (with `CtpMantle` background for presentations).
-- **Colormaps**: `catppuccin-heat` (sequential: Base → Blue → Mauve → Red → Yellow) and `catppuccin-diverge` (divergent: Blue → neutral → Red) for surfaces and heatmaps.
-- **Themed elements**: legend, grid, ticks, error bars, and colorbar all use palette colors.
-
-### Captions
-
-Styled captions (`config/captions-config.tex`):
-
-- Figures: label in `CtpBlue`
-- Tables: label in `CtpMauve`
-- Code listings: label in `CtpGreen`, renamed to "Código" in Spanish
-- Subfigures: label in `CtpSapphire`
-- Text in `CtpSubtext0`, hang format with endash separator.
-
-### Mathematics and physics
-
-- **`physics` package** integrated: `\abs`, `\norm`, `\grad`, `\div`, `\curl`, `\laplacian`, `\dv`, `\pdv`, `\bra`, `\ket`, `\braket`, `\comm`, etc.
-- **`siunitx`** for consistent SI units and numerical formatting (Spanish locale).
-- **Custom macros** (`config/macros.tex`): number sets (`\R`, `\N`, `\Z`, `\C`, `\Q`), optimization (`\argmin`, `\argmax`), ML/statistics (`\Loss`, `\E`, `\KL`, `\Var`, `\Cov`), physics aliases (`\Lap`, `\Div`, `\keff`, `\score`, `\FP`, `\SDE`).
-
-### Document structure
-
-- **Modular architecture**: configuration split across `config/`, `environments/`, `themes/`, `frontmatter/`, `chapters/`, `backmatter/`.
-- **Metadata-driven**: `metadata.tex` controls title, subtitle, author, date, dedication, epigraph, acknowledgements, and PDF metadata — no need to edit `main.tex`.
-- **Smart references**: `cleveref` with Spanish names (`\cref{eq:foo}` → "ec. 1.1", `\Cref{fig:bar}` → "Figura 2.3").
-- **Appendix support**: `appendix` package with `\begin{appendices}...\end{appendices}`.
-- **PDF features**: `hyperref` with themed link colors + `bookmark` for clean PDF outlines. PDF metadata populated from `metadata.tex`.
-- **Spanish language**: `babel` with `es-noshorthands`, `csquotes`, proper `\tablename`, `\lstlistingname`.
-
-### Environment system
-
-Generator-based architecture (`environments/generator.tex`) for theorem-like environments:
-
-| Environment        | Color      | Counter | Purpose                      |
-|--------------------|------------|:-------:|------------------------------|
-| `definicion`       | Blue       | ✓       | Definitions                  |
-| `teorema`          | Mauve      | ✓       | Theorems                     |
-| `proposicion`      | Green      | ✓       | Propositions                 |
-| `ejemplo`          | Peach      | ✓       | Examples                     |
-| `observacion`      | Overlay0   | —       | Remarks                      |
-| `fisicaconexion`   | Sapphire   | —       | Physics connections          |
-| `estrella`         | Yellow     | ✓       | "Polar Star" problems        |
-| `ejerciciocomp`    | Pink       | ✓       | Computational exercises      |
-| `ejercicio`        | —          | ✓       | Theoretical exercises (plain)|
-| `notasbib`         | Gray       | —       | Bibliographic notes          |
-
-### Additional features
-
-- **Algorithm styling**: `algorithm2e` with colored keywords, comments, line numbers, and vertical connector lines matching the palette.
-- **Float control**: `placeins` (`\FloatBarrier`), `wrapfig`, `subcaption`.
-- **TikZ libraries**: `calc`, `decorations.pathreplacing`, `patterns`, `matrix`, `tikz-cd` (commutative diagrams).
-- **PDF inclusion**: `pdfpages` for inserting external PDFs.
-- **`cancel`** for crossing out terms in derivations.
-- **Difficulty indicator**: `\dificultad{math}{physics}` renders a star-rated box.
-
-## Project structure
+## Anatomía del template
 
 ```
-.
-├── main.tex                     # Root document (load order matters)
-├── metadata.tex                 # Document metadata
-├── references.bib               # BibTeX bibliography
-├── config/
-│   ├── packages.tex             # All package loading (30+ packages)
-│   ├── geometry.tex             # Page layout, headers/footers
-│   ├── hyperref.tex             # Hyperlink config (loads after theme)
-│   ├── macros.tex               # Math/physics macros (complements physics pkg)
-│   ├── tcolorbox-config.tex     # Base tcolorbox style
-│   ├── titles-config.tex        # Chapter/section formatting
-│   ├── listings-catppuccin.tex  # Code listings (10 languages)
-│   ├── algorithms.tex           # Algorithm2e styling
-│   ├── tables-config.tex        # Table overflow, columns, colors
-│   ├── equation-styles.tex      # Semantic equation coloring (3-axis)
-│   ├── pgfplots-config.tex      # Plot styles, cycle list, colormaps
-│   └── captions-config.tex      # Caption formatting
+story-template/
+├── main-story.tex                    ← Root (no edites)
+├── story-content.tex                 ← ÚNICO archivo a editar por historia
+│
+├── config/                           ← Configuración reutilizable
+│   ├── packages-story.tex            Paquetes (inconsolata, pgfplots, etc.)
+│   ├── geometry-story.tex            Tamaño: 13.5cm × 24cm (9:16)
+│   ├── typography-story.tex          Escala: \DisplayNum, \HeroFont, \TitleFont...
+│   ├── tcolorbox-story.tex           Estilos: ghost, AccentBar, StoryCat
+│   ├── macros.tex                    Matemáticas: \R, \N, \E[...], \argmin
+│   ├── equation-styles.tex           Coloreado semántico: \equ, \eqk, \eqop
+│   └── pgfplots-config.tex           Gráficos: cycle list, colormaps
+│
 ├── environments/
-│   ├── generator.tex            # Environment factory
-│   ├── instances.tex            # Concrete environments
-│   └── specials.tex             # Exercises, difficulty, bib notes
+│   ├── generator.tex                 Factory de ambientes (infraestructura)
+│   └── story-blocks.tex              Bloques editoriales: KeyFact, StorySep
+│
 ├── themes/
-│   ├── catppuccin-palette.tex   # Main theme (Latte/Frappé/Macchiato/Mocha)
-│   ├── catppuccin-latte.tex     # Alternate config
-│   └── custom-theme.tex         # Non-Catppuccin fallback
-├── frontmatter/
-│   ├── titlepage.tex            # Title page layout
-│   ├── preliminary.tex          # Dedication, epigraph, acknowledgements
-│   └── preface.tex              # Preface
-├── chapters/
-│   └── chapter1.tex             # Template demo (all features)
-├── backmatter/
-│   └── appendixA.tex            # Code listings gallery (10 languages)
-├── figs/                        # Figures directory
-└── code/                        # Code snippets directory
+│   ├── catppuccin-palette.tex        Colores Catppuccin (referencia)
+│   └── story-accents.tex             Paleta grayscale: InkBlack/Dark/Mid/Light/Faint
+│
+├── deco/
+│   └── story-deco.tex                Decoraciones TikZ (opcional, deshabilitado)
+│
+├── code/                             (directorio vacío para snippets)
+├── figs/                             (directorio vacío para imágenes)
+└── main-story.pdf                    (output compilado)
 ```
 
-## Load order
+---
 
-The order in `main.tex` matters. The current sequence:
+## Maquetación: zonas y proporciones
+
+El template divide el espacio en 24 filas × 12 columnas. **Zona segura**: columnas 2-11 (contenido garantizado visible), filas 3-22 (buffers superiores e inferiores para sangrado de redes).
 
 ```
-packages → geometry → metadata → THEME → hyperref → macros →
-tcolorbox → environments → titles → listings → algorithms →
-tables → equations → pgfplots → captions → DOCUMENT
+┌────────────────────────────────┐
+│ [F1-2] METADATOS + ACENTO      │ ← Buffers (pueden sangrar)
+├─ ZONA SEGURA COMIENZA ─────────┤
+│ [F3-8]   HÉROE ECUACIÓN (6 filas, ~25% área) ┌─ Logo en col 12
+│ [F9]     Barra de acento                      │
+│ [F10-12] Título (+ número col 12) ────────────┘
+│ [F13]    Subtítulo
+│ [F14-15] Abstract (borde acentuado)
+│ [F16-21] Figura/gráfico (6 filas, ~25% área)
+│ [F22]    Body paragraph
+├─ ZONA SEGURA TERMINA ──────────┤
+│ [F23-24] FOOTER + MARCA        │ ← Buffers (pueden sangrar)
+└────────────────────────────────┘
 ```
 
-The theme must load before `hyperref` (link colors), `listings` (syntax colors), `tables` (header colors), `equations` (semantic colors), `pgfplots` (cycle list), and `captions` (label colors).
+**Proporción de contenido**: ecuación héroe y figura ocupan ~25% cada una. El balance es deliberado: dos "pesos visuales" que dialogan en el espacio blanco (Ma).
 
-## Quick start
+---
 
-1. **Clone**
+## Filosofía de diseño
+
+### Ma (間): whitespace como estructura
+
+El template hereda principios editoriales japoneses. No hay cajas visibles, bordes gruesos ni fondos coloreados (todo `ghost` style). La jerarquía surge de **escala tipográfica + espacio negativo**. Un lector escanea verticalmente y diferencia secciones por tamaño, no por color.
+
+### Tipografía escalonada
+
+| Comando | Tamaño | Rol | Color |
+|---------|--------|-----|-------|
+| `\DisplayNum{n}` | 40pt | Número decorativo | InkFaint (gris claro) |
+| `\HeroFont` | 16pt | Ecuación principal | — (math mode) |
+| `\TitleFont` | 20pt | Título de la historia | InkBlack |
+| `\SubFont` | 9pt | Subtítulo | InkMid |
+| `\BodyFont` | 7.5pt | Párrafos | InkMid |
+| `\CaptFont` | 6.5pt | Captions, labels | InkLight |
+| `\MetaFont` | 5pt | Metadatos, footer | InkLight |
+
+La fuente base es **Inconsolata** (monospace) para toda la página. Matemáticas conservan Computer Modern (TeX estándar). Esto da "identidad de código" apropiada para ciencias computacionales.
+
+### Paleta: grayscale + acento
+
+**Grayscale base** (`InkBlack` → `InkFaint`): 5 tonos neutros. Cada historia elige **UN acento Catppuccin** (`StoryAccentColor`) que aparece solo en 3 lugares:
+1. Línea divisoria [F2] (AccentBar)
+2. Chip de categoría [F2] (StoryCat)
+3. Borde izquierdo del abstract [F14-15] (leftaccent)
+
+El acento es un susurro visual, no un grito. Permite que cada historia tenga "identidad de color" sin saturar la paleta.
+
+### Chip flotante sobre línea
+
+La línea [F2] ocupa columnas 1-12. El chip de categoría flota sobre ella, posicionado a la derecha (columnas 9-12). Genera tensión visual: dos elementos en la misma fila, uno tira hacia abajo, el otro flota. Es un detalle tipográfico que dice "esto es diseñado".
+
+---
+
+## Guía de contenido: story-content.tex
+
+El archivo `story-content.tex` define 11 macros. Reemplaza los valores placeholder:
+
+```latex
+% Colores y metadatos
+\providecommand{\StoryAccentColor}{CtpMauve}   % CtpBlue, CtpMauve, CtpGreen, CtpPeach, CtpRed...
+\providecommand{\StoryNumber}{001}
+\providecommand{\StoryDate}{2025}
+\providecommand{\StorySeriesTag}{QbitLab Stories}
+\providecommand{\StoryCategory}{Modelos Generativos}
+
+% Contenido principal
+\providecommand{\StoryTitle}{Nombre breve de la historia}
+\providecommand{\StorySubtitle}{Frase descriptiva (máx 1 línea)}
+
+% Ecuación héroe (display math, centrada, 16pt)
+\providecommand{\StoryEquation}{
+  e^{i\pi} + 1 = 0
+}
+\providecommand{\StoryModelLabel}{Identidad de Euler}  % Label bajo la ecuación
+
+% Figura (pgfplots axis, \includegraphics, o TikZ)
+\providecommand{\StoryFigure}{
+  \includegraphics[width=0.85\linewidth]{figs/example.pdf}
+}
+\providecommand{\StoryFigCaption}{Comportamiento de X en función de Y.}
+
+% Abstract (2-3 líneas máximo)
+\providecommand{\StoryAbstract}{
+  Explicación breve del concepto. Una frase sobre la intuición física,
+  una sobre la aplicación. Mantén densidad baja.
+}
+
+% Body (1-2 líneas máximo, 7.5pt)
+\providecommand{\StoryBody}{
+  Párrafo final que ancle la historia. Qué es, por qué importa, cómo se usa.
+}
+
+% Referencias (formato libre, 5.5pt)
+\providecommand{\StoryRefs}{
+  \textbf{Refs}: Author et al. (2023) | doi:10.xxxxx
+}
+```
+
+### Consejos de contenido
+
+**Ecuación héroe**: debe ser reconocible en 1 segundo. Preferir identidades, conservación, transformación. Evitar derivaciones largas.
+
+**Figura**: 6 filas = espacio comprimido. Si es gráfico, usa `pgfplots` (configurado automáticamente). Si es diagrama, mantén líneas gruesas y colores contrastantes. Las fuentes pequeñas se pierden.
+
+**Abstract + Body**: 5.5 pt es muy pequeño. Menos es más. Cada palabra cuenta.
+
+**Categoría y referencias**: usa anglicismos sin miedo (ML, SDE, PDE, VAE). La audiencia es física/CS.
+
+---
+
+## Colorimetría: cómo cambiar el acento
+
+En `story-content.tex`:
+```latex
+\providecommand{\StoryAccentColor}{CtpMauve}  % ← cambiar esto
+```
+
+Opciones disponibles (del repo Catppuccin):
+```
+CtpBlue       (azul — ecuaciones, lógica)
+CtpMauve      (púrpura — teoría, abstracción)
+CtpGreen      (verde — optimización, soluciones)
+CtpPeach      (melocotón — aplicaciones, hechos)
+CtpRed        (rojo — advertencia, divergencia)
+CtpYellow     (amarillo — destacado, atención)
+CtpPink       (rosa — creatividad, experimentación)
+CtpRosewater  (rosa claro — meta, comentario)
+CtpSapphire   (turquesa — física, espacios)
+CtpTeal       (teal oscuro — equilibrio)
+CtpSky        (celeste — cielo, límites)
+CtpLavender   (lavanda — suavidad, continuidad)
+```
+
+Elije un color por "significado semántico", no estética. CtpBlue para ecuaciones, CtpGreen para soluciones, CtpRed para divergencias.
+
+---
+
+## Ecuaciones coloreadas (opcional)
+
+Las ecuaciones soportan **coloreado semántico** (archivo `config/equation-styles.tex`). Sistema de 3 ejes:
+
+**Eje 1: Rol sintáctico** (estable)
+- `\eqop{...}` — operadores: ∫, ∑, ∇, Ĥ
+- `\eqfn{...}` — funciones: f(·), L(θ), σ(·)
+- `\eqdm{...}` — diferenciales: dx, dt, dW
+- `\eqdom{...}` — dominios: Ω, ℝⁿ, S²
+
+**Eje 2: Estatus epistémico** (lo que se busca vs. se asume dado)
+- `\equ{...}` — incógnita/buscado (Peach)
+- `\eqk{...}` — conocido/dato (Mauve)
+- `\eqcon{...}` — constante universal (Lavender)
+
+**Eje 3: Tipo matemático** (refuerzo sutil)
+- `\eqvec{...}` — vectores (Red)
+- `\eqten{...}` — tensores/matrices (Rosewater)
+
+Ejemplo:
+```latex
+\eqop{\int_{\eqdom{\Omega}}} \equ{\nabla u \cdot \nabla v} \eqdm{dx}
+= \eqop{\int_{\partial\eqdom{\Omega}}} \equ{u} \eqop{\frac{\partial v}{\partial n}} \eqdm{dS}
+```
+
+Para deshabilitarlo (impresión B/N):
+```latex
+{\eqcolorsfalse ... }  % grupo local sin colores
+```
+
+---
+
+## Compilación y exportación
+
+### pdfLaTeX (recomendado)
+
+```bash
+pdflatex main-story.tex
+pdflatex main-story.tex  # IMPORTANTE: segunda pasada para TikZ remember picture
+```
+
+Genera `main-story.pdf` (listo para Instagram, 1080×1920 px aprox.).
+
+### Inkscape → SVG (para post-edición)
+
+```bash
+inkscape main-story.pdf -o story-001.svg
+```
+
+SVG permite:
+- Editar texto en diseño gráfico (Figma, Illustrator)
+- Ajustar colores sin recompilar LaTeX
+- Exportar a múltiples formatos
+
+### Dimensiones y DPI
+
+El template compilado es **13.5cm × 24cm** en tipografía. Al rasterizar:
+- **300 DPI** → 1599 × 2835 px (para imprenta, si es necesario)
+- **100 DPI** → 533 × 945 px (web, redes)
+- **150 DPI** → 800 × 1417 px (estándar equilibrado)
+
+Instagram Stories nativas requieren **1080 × 1920 px**. Ajusta en tu exportador (Inkscape, ImageMagick, etc.):
+```bash
+convert main-story.pdf -density 150 -resize 1080x1920 story-001.png
+```
+
+---
+
+## Estructura reutilizable: de una historia a muchas
+
+El template es **completamente reutilizable**. La arquitectura permite crear N historias sin duplicar configuración.
+
+### Workflow para historia N+1
+
+1. **Copia los archivos raíz**:
    ```bash
-   git clone git@github.com:Zessinthel/latex-catppuccin-academic.git
-   cd latex-catppuccin-academic
+   cp main-story.tex main-story-002.tex
+   cp story-content.tex story-content-002.tex
    ```
 
-2. **Edit `metadata.tex`** with your document info.
-
-3. **Choose a flavor** in `themes/catppuccin-palette.tex`:
+2. **Edita solo `story-content-002.tex`**:
    ```latex
-   \usepackage[Latte,styleAll]{catppuccinpalette}    % light
-   %\usepackage[Mocha,styleAll]{catppuccinpalette}   % dark
+   \providecommand{\StoryTitle}{Nueva historia}
+   % ... resto de variables
    ```
-   For dark flavors, also uncomment `\darkthemetrue`.
 
-4. **Compile**
+3. **Actualiza `main-story-002.tex`** (1 línea):
+   ```latex
+   \input{story-content-002.tex}  % cambiar esto
+   ```
+
+4. **Compila**:
    ```bash
-   latexmk -pdf main.tex
-   ```
-   Or manually:
-   ```bash
-   pdflatex main.tex && bibtex main && pdflatex main.tex && pdflatex main.tex
+   pdflatex main-story-002.tex
+   pdflatex main-story-002.tex
    ```
 
-## Requirements
+### Qué NO se replica
 
-A full TeX Live or MiKTeX installation with these packages (all standard):
+Los directorios `config/`, `environments/`, `themes/` son **compartidos**. Si cambias `config/typography-story.tex`, afecta a TODAS las historias. Esto es intencional: coherencia visual global.
 
-**Core**: `tcolorbox`, `algorithm2e`, `listings`, `tikz`, `pgfplots`, `natbib`, `titlesec`, `fancyhdr`, `hyperref`, `microtype`, `booktabs`, `inconsolata`, `catppuccinpalette`.
+**Cambios globales** (afectan todas las historias):
+- Escala tipográfica → edita `config/typography-story.tex`
+- Paleta grayscale → edita `themes/story-accents.tex`
+- Estilos de caja → edita `config/tcolorbox-story.tex`
 
-**Mathematics**: `amsmath`, `amssymb`, `amsthm`, `mathtools`, `bm`, `physics`, `cancel`, `siunitx`.
+**Cambios locales** (una historia):
+- Contenido → edita `story-content-00N.tex`
+- Acento de color → `\StoryAccentColor` en `story-content-00N.tex`
 
-**Tables**: `tabularx`, `longtable`, `multirow`, `colortbl`, `array`.
+---
 
-**Figures**: `graphicx`, `caption`, `subcaption`, `float`, `wrapfig`, `placeins`.
+## Personalización avanzada
 
-**Structure**: `appendix`, `pdfpages`, `cleveref`, `bookmark`, `csquotes`, `footmisc`.
+### Cambiar tipografía base
 
-**Diagrams**: `tikz-cd`, `pgffor`.
+En `config/packages-story.tex`, línea ~16:
+```latex
+\renewcommand{\familydefault}{\ttdefault}  % ← Inconsolata
+```
 
-**Programming**: `etoolbox`, `xparse`, `enumitem`, `pifont`.
+Para cambiar a serif (Computer Modern):
+```latex
+% \renewcommand{\familydefault}{\ttdefault}  % comentar
+```
 
-## Customization
+Para otra monospace (TeX Gyre Cursor):
+```latex
+\usepackage{tgcursor}
+\renewcommand{\familydefault}{\ttdefault}
+```
 
-**Switching flavors**: change the `\usepackage[Latte,...]{catppuccinpalette}` option. For dark flavors, uncomment `\darkthemetrue`.
+### Ajustar escala tipográfica
 
-**Equation coloring**: edit the color assignments in `config/equation-styles.tex` (e.g., `\colorlet{equ}{CtpPeach}` → any other `Ctp*` color). Disable globally with `\eqcolorsfalse`.
+En `config/typography-story.tex`, edita los valores `\fontsize{}{}``:
+```latex
+\newcommand{\HeroFont}{\fontsize{16}{20}\selectfont}  % 16pt display
+```
 
-**Adding languages**: define a new style in `config/listings-catppuccin.tex` following the existing pattern. The 8 keyword classes map to fixed colors.
+Para ecuaciones más grandes (20pt):
+```latex
+\newcommand{\HeroFont}{\fontsize{20}{24}\selectfont}
+```
 
-**Adding chapters**: create `chapters/chapterN.tex` and add `\include{chapters/chapterN}` in `main.tex`.
+### Modificar márgenes de zona segura
 
-**Table colors**: edit `\colorlet{tableheadcolor}{...}` and related in `config/tables-config.tex`.
+En `main-story.tex`, busca:
+```latex
+\posterbox[ghost]{column=2, span=10, row=3, rowspan=6}  % cols 2-11
+```
 
-**Plot colors**: edit the cycle list in `config/pgfplots-config.tex` or create custom colormaps.
+Para zona segura más amplia (cols 2-12):
+```latex
+\posterbox[ghost]{column=2, span=11, row=3, rowspan=6}
+```
 
-**Extending macros**: add commands to `config/macros.tex`. The `physics` package covers most standard notation; only add what it doesn't provide.
+**Advertencia**: reducir márgenes aumenta riesgo de sangrado en redes.
 
-## License
+### Agregar secciones nuevas
 
-This template is released under the [MIT License](LICENSE). The Catppuccin color palette is © Catppuccin contributors, used under their license terms.
+El grid es flexible. Para agregar una sección entre Abstract [F14-15] y Figura [F16-21], usa la fila 16:
 
-## Author
+```latex
+\posterbox[ghostpad]{column=2, span=10, row=16}{%
+  \BodyFont Tu contenido aquí
+}
 
-**Antonio Casanova** — [GitHub](https://github.com/Zessinthel) · [GitLab](https://gitlab.com/Zessinthel)
+% Desplaza la figura:
+\posterbox[ghost]{column=2, span=10, row=17, rowspan=6}{%
+  % figura
+}
+```
+
+---
+
+## Limitaciones y notas técnicas
+
+### pdfLaTeX vs. XeLaTeX/LuaLaTeX
+
+El template está optimizado para **pdfLaTeX**. Si usas XeLaTeX:
+- La fuente Inconsolata puede compilar más lentamente
+- TikZ `remember picture` requiere dos pasadas obligatorias
+- Recomendación: mantén pdfLaTeX
+
+### Compatibilidad de paquetes
+
+El template requiere:
+- `tcolorbox` (v5.0+) — estilos de cajas
+- `pgfplots` (v1.18+) — gráficos
+- `inconsolata` — monospace
+- `amsmath, amssymb` — matemáticas
+- `babel` (spanish) — tipografía española
+
+Si compilas en Overleaf o TeX Live 2021+, todo está incluido.
+
+### TikZ y remember picture
+
+La decoración [F2] (línea flotante + chip) usa TikZ. Por eso **compila DOS veces**:
+1. Primera pasada: genera `.aux` con coordenadas
+2. Segunda pasada: dibuja superposiciones con coordenadas exactas
+
+Si cambias solo contenido (no estructura), basta una compilación.
+
+### Máximo contenido recomendado
+
+- **Título**: máx 7 palabras (20pt) ← si pasa 2 líneas, reduce
+- **Subtítulo**: 1 línea (9pt)
+- **Abstract**: 4-5 líneas (7.5pt)
+- **Body**: 2-3 líneas (7.5pt)
+- **Referencias**: 1 línea (5.5pt)
+
+Exceder estos límites comprime el whitespace, viola el espíritu Ma.
+
+---
+
+## Ejemplos de uso
+
+### Historia 1: Identidad de Euler
+
+```latex
+\providecommand{\StoryAccentColor}{CtpBlue}
+\providecommand{\StoryTitle}{La identidad más hermosa}
+\providecommand{\StoryEquation}{e^{i\pi} + 1 = 0}
+\providecommand{\StoryModelLabel}{Identidad de Euler}
+\providecommand{\StoryAbstract}{Cinco constantes matemáticas: $e$, $i$, $\pi$, $1$, $0$. 
+  Una ecuación. Belleza pura.}
+```
+
+### Historia 2: Divergencia en ML
+
+```latex
+\providecommand{\StoryAccentColor}{CtpRed}
+\providecommand{\StoryTitle}{KL Divergence}
+\providecommand{\StoryEquation}{D_{\text{KL}}(p \| q) = \sum_x p(x) \log \frac{p(x)}{q(x)}}
+\providecommand{\StoryFigure}{\begin{axis}...\end{axis}}
+```
+
+### Historia 3: Ecuación de Schrödinger
+
+```latex
+\providecommand{\StoryAccentColor}{CtpSapphire}
+\providecommand{\StoryTitle}{Mecánica cuántica}
+\providecommand{\StoryEquation}{\eqop{\hat{H}} \equ{\psi} = \equ{E} \equ{\psi}}
+```
+
+---
+
+## Licencia y contribuciones
+
+Template derivado de [latex-catppuccin-academic](https://github.com/Zessinthel/latex-catppuccin-academic) (MIT). Usa Catppuccin palette bajo licencia MIT.
+
+Contribuciones bienvenidas. Para cambios mayores, abre un issue primero.
+
+---
+
+## Contacto y soporte
+
+- **Repo**: [github.com/Zessinthel/story-template](https://github.com/Zessinthel/story-template)
+- **Issues**: para bugs, solicitudes de features, preguntas de compilación
+- **Telegram**: @QbitLab
+
+Disfruta escribiendo historias científicas.
