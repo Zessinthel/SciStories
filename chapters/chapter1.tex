@@ -1,830 +1,786 @@
 %═══════════════════════════════════════════════════════════════════════════════
-% PRÁCTICA 1 — Aproximación de Funciones con Bases Fijas
-%
-% Cubre los contenidos de los Capítulos 1 y 2 de La máquina estocástica.
-% El oscilador armónico como señal de referencia; bases de monomios, Fourier
-% y RBF gaussiana; mínimos cuadrados; sobreajuste y condicionamiento.
+\chapter{Demostración de la plantilla}
+\label{ch:demo}
 %═══════════════════════════════════════════════════════════════════════════════
-\chapter{Aproximación de Funciones con Bases Fijas}
-\label{chap:aproximacion}
 
-% ---------------------------------------------------------------------------
-% Bloque de datos del estudiante
-% ---------------------------------------------------------------------------
-\textcolor{CtpMauve}{\textbf{Autor:}} \textit{Jesús Antonio Chala Casanova}\\[2pt]
-\textcolor{CtpMauve}{\textbf{Afiliación:}} \textit{@QbitLab}
+Este capítulo ilustra todas las capacidades de la plantilla
+\texttt{latex\-catppuccin\-academic}. Los colores se adaptan automáticamente
+al tema seleccionado (Latte, Frappé, Macchiato o Mocha); para cambiar de
+tema basta modificar una línea en
+\texttt{themes/\allowbreak catppuccin\-palette.tex}.
 
-% ---------------------------------------------------------------------------
-% ABSTRACT
-% ---------------------------------------------------------------------------
-\section*{Abstract}
-\label{sec:abstract}
+La plantilla está diseñada para textos académicos de física computacional:
+notas de clase, tesis, reportes técnicos y artículos. Cada elemento visual
+---entornos, ecuaciones, tablas, algoritmos, gráficas, código--- sigue la
+paleta Catppuccin de forma coherente.
 
-\textit{Esta práctica introduce la aproximación de funciones mediante modelos lineales en parámetros, centrándose en la tensión entre capacidad de representación y generalización (sesgo-varianza). Se implementan tres familias de bases: monomios (Vandermonde), Fourier truncada y RBF gaussiana. Sobre tres funciones de prueba con distinta regularidad, se construyen matrices de diseño para conjuntos fijos de entrenamiento y prueba, y se resuelve el problema de mínimos cuadrados mediante SVD. Se calculan el número de condición, métricas de error (RMSE, MAE, $E_\infty$) y la norma de los parámetros. Se analiza la evolución de los errores y del condicionamiento al variar $p$, y se estudia el efecto del ruido gaussiano aditivo sobre el punto óptimo y la estabilidad de la solución. Los resultados permitirán comprender cómo la elección de la base condiciona la generalización y la estabilidad numérica, sentando las bases para la regularización en la siguiente práctica.}
 
-% ---------------------------------------------------------------------------
-% OBJETIVOS
-% ---------------------------------------------------------------------------
-\section*{Objetivos}
+%═══════════════════════════════════════════════════════════════════════════════
+\section{Entornos teoremáticos}
+\label{sec:entornos}
+%═══════════════════════════════════════════════════════════════════════════════
 
-\subsection*{Objetivo general}
-Comprender cómo la elección de la familia de funciones base y el número de parámetros afectan la capacidad de generalización en modelos lineales, identificando los regímenes de subajuste y sobreajuste mediante el análisis de errores y del condicionamiento numérico.
+La plantilla define entornos mediante el generador
+\texttt{environments/\allowbreak generator.tex}.
+Cada entorno tiene su propio color de marco y fondo, organizados en tres niveles:
+fundamentos (definición, teorema, proposición), apoyo (ejemplo, observación,
+conexión física), y especiales (estrella polar, ejercicio computacional).
 
-\subsection*{Objetivos específicos}
-\begin{enumerate}[leftmargin=2em, label=\arabic*.]
-  \item Implementar la construcción de matrices de diseño para las bases de monomios, Fourier truncada y RBF gaussiana, y resolver el problema de mínimos cuadrados mediante descomposición en valores singulares (SVD), calculando el número de condición \(\kappa(\mathbf{A})\) y las métricas RMSE, MAE y \(E_\infty\).
-  \item Analizar cuantitativamente la evolución de los errores de entrenamiento y prueba al variar el número de parámetros \(p\) (sin ruido), identificando el punto óptimo \(p^*\) y relacionando el sobreajuste con el crecimiento de \(\kappa(\mathbf{A})\) y de la norma de los parámetros.
-  \item Evaluar el efecto del ruido gaussiano aditivo sobre el desplazamiento de \(p^*\) y la estabilidad de la solución, comparando el comportamiento de las tres bases y motivando la necesidad de la regularización.
-\end{enumerate}
+%───────────────────────────────────────────────────────────────────────────────
+\subsection{Nivel 1: Fundamentos}
+%───────────────────────────────────────────────────────────────────────────────
 
-% ---------------------------------------------------------------------------
-% FUNDAMENTOS TEÓRICOS
-% ---------------------------------------------------------------------------
-\section*{Fundamentos teóricos}
-\label{sec:teoria}
-
-\subsection*{El problema de aproximación de funciones}
-\label{sec:problema_aprox}
-
-Supóngase que una función $f^* : \mathcal{X} \to \mathbb{R}$, con
-$\mathcal{X} \subseteq \mathbb{R}$, es accesible únicamente a través de
-$n$ evaluaciones ruidosas
-\[
-  \eqk{y_i} \;=\; f^*(\eqk{x_i}) + \eqk{\varepsilon_i},
-  \qquad i = 1, \ldots, n,
-\]
-donde $\eqk{x_i}$ son los puntos de entrenamiento y $\eqk{\varepsilon_i}$ es
-el ruido de observación. En esta práctica se utilizará ruido gaussiano blanco
-aditivo: $\eqk{\varepsilon_i} \sim \mathcal{N}(0, \sigma_\varepsilon^2)$,
-independiente e idénticamente distribuido (i.i.d.). La desviación típica
-$\sigma_\varepsilon$ controla la intensidad del ruido. En la Parte A se
-trabajará sin ruido ($\sigma_\varepsilon = 0$), mientras que en la Parte B
-se añadirá ruido con distintos niveles para estudiar su efecto sobre la
-generalización.
-
-El problema de aproximación consiste en encontrar una función
-$f(\cdot;\equ{\boldsymbol{\theta}})$ perteneciente a una familia
-parametrizada que reproduzca fielmente $f^*$ sobre la región de interés,
-incluso en puntos no observados. La elección de la familia parametrizada es el grado de libertad del
-diseñador. Si la familia es demasiado pequeña (pocas funciones de base),
-la aproximación no tiene capacidad de representar $f^*$ aunque se tenga
-infinitos datos: hay subajuste. Si es demasiado grande (muchos parámetros),
-la aproximación memoriza el ruido en lugar de aprender la señal: hay
-sobreajuste. Esta tensión es la primera instancia del dilema
-\emph{sesgo-varianza}, que reaparece en la Práctica 2 con una formulación
-probabilística precisa.
-
-\subsection*{Modelos lineales en parámetros}
-\label{sec:modelos_lineales}
-
-\begin{definicion}{Modelo lineal en parámetros}
-\label{def:modelo_lineal}
-Un \textbf{modelo lineal en parámetros} es una función de la forma
-\[
-  f(x;\equ{\boldsymbol{\theta}}) \;=\; \sum_{j=1}^{p} \equ{\theta_j}\,\phi_j(x)
-  \;=\; \boldsymbol{\phi}(x)^\top \equ{\boldsymbol{\theta}},
-\]
-donde $\{\phi_j\}_{j=1}^p$ es una familia fija de \textbf{funciones de base}
-(o \textit{features}) y $\equ{\boldsymbol{\theta}} \in \mathbb{R}^p$ es el
-vector de parámetros a determinar. El modelo es lineal en
-$\equ{\boldsymbol{\theta}}$ aunque las $\phi_j$ pueden ser funciones
-altamente no lineales de $x$.
+\begin{definicion}{Espacio de Hilbert}
+Un \textbf{espacio de Hilbert} es un espacio vectorial dotado de un producto
+interno $\langle \cdot, \cdot \rangle$ que induce una norma
+$\|x\| = \sqrt{\langle x, x \rangle}$ bajo la cual el espacio es completo.
 \end{definicion}
 
-La evaluación del modelo en los $n$ puntos de entrenamiento se escribe
-matricialmente como
-\[
-  \mathbf{f} \;=\; \eqvec{A}\,\equ{\boldsymbol{\theta}},
-\]
-donde la \textbf{matriz de diseño} (\textit{design matrix})
-$\eqvec{A} \in \mathbb{R}^{n \times p}$ tiene entradas
-\[
-  A_{ij} \;=\; \phi_j(\eqk{x_i}), \quad i = 1,\ldots,n,\; j = 1,\ldots,p.
-\]
-La estructura de $\eqvec{A}$ depende enteramente de la elección de las
-bases $\{\phi_j\}$ y de los puntos de muestro $\{x_i\}$; el vector de
-datos $\eqk{\mathbf{y}}$ no aparece en $\eqvec{A}$. Esta separación entre
-estructura (bases) y datos ($\mathbf{y}$) es la que hace el problema lineal
-y tratable analíticamente.
-
-\subsection*{Familias de bases}
-\label{sec:familias_bases}
-
-\subsubsection{Base monomial (Vandermonde)}
-\label{sec:vandermonde}
-
-\begin{definicion}{Base de monomios}
-\label{def:monomios}
-La \textbf{base de monomios} de grado $p-1$ está formada por las funciones
-\[
-  \phi_j(x) \;=\; x^{\,j-1}, \qquad j = 1, \dots, p.
-\]
-La matriz de diseño resultante para un conjunto de puntos $\{\eqk{x_i}\}_{i=1}^n$ es la
-\textbf{matriz de Vandermonde}:
-\[
-  \eqvec{A}_{\mathrm{Van}} \;=\; \begin{pmatrix}
-    1 & \eqk{x_1} & \eqk{x_1}^2 & \cdots & \eqk{x_1}^{p-1} \\
-    1 & \eqk{x_2} & \eqk{x_2}^2 & \cdots & \eqk{x_2}^{p-1} \\
-    \vdots & & & \ddots & \vdots \\
-    1 & \eqk{x_n} & \eqk{x_n}^2 & \cdots & \eqk{x_n}^{p-1}
-  \end{pmatrix}.
-\]
-Cuando $n=p$ y los puntos son distintos, $\eqvec{A}_{\mathrm{Van}}$ es invertible
-($\det \eqvec{A}_{\mathrm{Van}} = \prod_{1\le i<j\le n}(\eqk{x_j}-\eqk{x_i}) \neq 0$) y el sistema
-$\eqvec{A}_{\mathrm{Van}}\equ{\boldsymbol{\theta}}=\eqk{\mathbf{y}}$ proporciona el polinomio
-interpolador en la base monomial.
-\end{definicion}
-
-\begin{observacion}{Inestabilidad numérica de la base monomial}
-\label{obs:vandermonde_inestable}
-El número de condición de la matriz de Vandermonde crece exponencialmente
-con el grado del polinomio cuando los puntos $\eqk{x_i}$ están equiespaciados
-o el dominio no es $[-1,1]$. Para $p = 20$ puntos equiespaciados en $[-1,1]$,
-es común obtener $\kappa(\eqvec{A}_{\mathrm{Van}}) \sim 10^{15}$, lo que
-agota toda la precisión de doble precisión ($\varepsilon_{\mathrm{mach}}
-\approx 10^{-16}$; véase \Cref{def:epsilon_mach}). En la práctica, esto
-significa que la solución pierde casi todos sus dígitos significativos,
-haciéndola inservible.
-\end{observacion}
-
-\begin{fisicaconexion}{Interpolación de Lagrange como cambio de base}
-La interpolación polinomial puede realizarse en la base de Lagrange
-$\{L_j(x)\}$, definida por $L_j(\eqk{x_i}) = \delta_{ij}$. En esa base, la
-matriz de diseño es la identidad y los coeficientes son directamente los
-valores $\eqk{y_i}$. Ambas representaciones son matemáticamente equivalentes,
-pero numéricamente la base monomial es extremadamente inestable (gran
-número de condición), mientras que la base de Lagrange evita resolver un
-sistema lineal, aunque sigue sufriendo el fenómeno de Runge en puntos
-equiespaciados. La elección de base es, por tanto, determinante para la
-estabilidad numérica.
-\end{fisicaconexion}
-
-\subsubsection{Base de Fourier truncada}
-\label{sec:fourier}
-
-\begin{definicion}{Base de Fourier truncada}
-\label{def:fourier}
-Para funciones definidas sobre un intervalo $[a,b]$ (periódico o no), la
-\textbf{base de Fourier truncada} con $K$ armónicos está formada por
-\[
-  \phi_1(x)=1,\quad
-  \phi_{2k}(x)=\cos(k\eqcon{\omega_1} x),\quad
-  \phi_{2k+1}(x)=\sin(k\eqcon{\omega_1} x),\qquad k=1,\dots,K,
-\]
-donde $\eqcon{\omega_1} = 2\pi/(b-a)$ es la frecuencia fundamental.
-El número total de parámetros es $p = 2K+1$.
-
-La \textbf{matriz de diseño} $\eqvec{A}_{\mathrm{Fou}} \in \mathbb{R}^{n \times p}$
-tiene entradas $A_{ij} = \phi_j(\eqk{x_i})$. Explícitamente, para $n$ puntos $\{\eqk{x_i}\}$:
-\[
-\eqvec{A}_{\mathrm{Fou}} =
-\begin{pmatrix}
-1 & \cos(\eqcon{\omega_1}\eqk{x_1}) & \sin(\eqcon{\omega_1}\eqk{x_1}) & \cos(2\eqcon{\omega_1}\eqk{x_1}) & \sin(2\eqcon{\omega_1}\eqk{x_1}) & \cdots \\
-1 & \cos(\eqcon{\omega_1}\eqk{x_2}) & \sin(\eqcon{\omega_1}\eqk{x_2}) & \cos(2\eqcon{\omega_1}\eqk{x_2}) & \sin(2\eqcon{\omega_1}\eqk{x_2}) & \cdots \\
-\vdots & \vdots & \vdots & \vdots & \vdots & \ddots \\
-1 & \cos(\eqcon{\omega_1}\eqk{x_n}) & \sin(\eqcon{\omega_1}\eqk{x_n}) & \cos(2\eqcon{\omega_1}\eqk{x_n}) & \sin(2\eqcon{\omega_1}\eqk{x_n}) & \cdots
-\end{pmatrix}.
-\]
-Obsérvese que las columnas se alternan: coseno y seno para cada frecuencia,
-precedidos por la columna constante.
-\end{definicion}
-
-\begin{teorema}{Ortogonalidad de la base de Fourier}
-\label{thm:fourier_orto}
-Si los $n$ puntos están igualmente espaciados en el intervalo semiabierto $[a,b)$,
-es decir, $\eqk{x_i} = a + (i-1)\frac{b-a}{n}$ para $i=1,\dots,n$, entonces la matriz de
-diseño satisface
-\[
-  \eqvec{A}_{\mathrm{Fou}}^\top \eqvec{A}_{\mathrm{Fou}} =
-  \begin{pmatrix}
-    n & 0 & 0 & \cdots \\
-    0 & \frac{n}{2} & 0 & \cdots \\
-    0 & 0 & \frac{n}{2} & \cdots \\
-    \vdots & \vdots & \vdots & \ddots
-  \end{pmatrix}
-  = \operatorname{diag}\!\left(n, \frac{n}{2}, \frac{n}{2}, \dots, \frac{n}{2}\right).
-\]
-Por consiguiente, el número de condición es $\kappa_2(\eqvec{A}_{\mathrm{Fou}}) = \sqrt{2}$
-(independientemente de $p$), lo que demuestra la estabilidad espectral de esta base.
+\begin{teorema}{Teorema de representación de Riesz}
+Sea $\mathcal{H}$ un espacio de Hilbert. Para todo funcional lineal continuo
+$\varphi: \mathcal{H} \to \mathbb{R}$ existe un único $y \in \mathcal{H}$
+tal que $\varphi(x) = \langle x, y \rangle$ para todo $x \in \mathcal{H}$.
 \end{teorema}
 
-La convergencia de la serie de Fourier truncada es \textbf{espectral} (exponencial en $p$)
-para funciones periódicas analíticas, y \textbf{algebraica} de orden $k$ para funciones
-con derivadas $k$-ésimas continuas a trozos (véase \Cref{def:tasa_exp}).
-
-\begin{fisicaconexion}{DFT y análisis espectral}
-La matriz de Fourier con puntos equiespaciados es la base de la \textbf{Transformada Discreta de Fourier (DFT)}. En notación compleja, $\hat{\eqk{y}}_k = \sum_i \eqk{y_i} e^{-2\pi i k i/n}$; nuestra matriz real (senos y cosenos) es equivalente y hereda su ortogonalidad ($\kappa=\sqrt{2}$). En física experimental, la DFT se usa para analizar espectros de frecuencia, detectar periodicidades en datos astronómicos y reconstruir imágenes en MRI o CT. La estabilidad de la base garantiza que el ruido no se amplifique en el espectro.
-\end{fisicaconexion}
-
-
-\subsubsection{Funciones de base radial (RBF)}
-\label{sec:rbf}
-
-\begin{definicion}{Función de base radial}
-\label{def:rbf}
-Una \textbf{función de base radial} (RBF) está definida por un núcleo
-radialmente simétrico $\Phi : [0,\infty) \to \mathbb{R}$ y un conjunto
-de $p$ centros $\{c_j\}_{j=1}^p \subset \mathcal{X}$:
+\begin{proposicion}{Identidad de polarización}
+En un espacio de Hilbert real, el producto interno se recupera de la norma:
 \[
-  \phi_j(x) \;=\; \Phi\!\left(\frac{|x - c_j|}{\sigma}\right),
+\langle x, y \rangle
+= \frac{1}{4}\left(\|x+y\|^2 - \|x-y\|^2\right).
 \]
-donde $\sigma > 0$ es el \textbf{ancho de banda} (\textit{bandwidth}).
-Las dos RBF más comunes en este contexto son:
+\end{proposicion}
 
-\begin{itemize}[nosep, leftmargin=1.5em]
-  \item \textbf{Gaussiana:}
-    $\Phi(r) = \exp(-r^2/2)$,\quad
-    $\phi_j(x) = \exp\!\left(-\dfrac{(x-c_j)^2}{2\sigma^2}\right)$.
-  \item \textbf{Multicuadrática:}
-    $\Phi(r) = \sqrt{1 + r^2}$,\quad
-    $\phi_j(x) = \sqrt{1 + (x-c_j)^2/\sigma^2}$.
-\end{itemize}
-\end{definicion}
+%───────────────────────────────────────────────────────────────────────────────
+\subsection{Nivel 2: Apoyo}
+%───────────────────────────────────────────────────────────────────────────────
 
-En esta práctica se utilizan $p$ centros equiespaciados en el dominio $[a,b]$:
-$c_j = a + (j-1)\frac{b-a}{p-1}$, para $j=1,\dots,p$. La matriz de diseño
-$\eqvec{A}_{\mathrm{RBF}} \in \mathbb{R}^{n \times p}$ para la RBF gaussiana tiene entradas
-\[
-  A_{ij} = \exp\!\left(-\frac{(\eqk{x_i} - c_j)^2}{2\sigma^2}\right),
-  \qquad i=1,\dots,n,\; j=1,\dots,p.
-\]
-Explícitamente:
-\[
-\eqvec{A}_{\mathrm{RBF}} =
-\begin{pmatrix}
-\exp\!\left(-\frac{(\eqk{x_1}-c_1)^2}{2\sigma^2}\right) & \exp\!\left(-\frac{(\eqk{x_1}-c_2)^2}{2\sigma^2}\right) & \cdots & \exp\!\left(-\frac{(\eqk{x_1}-c_p)^2}{2\sigma^2}\right) \\
-\exp\!\left(-\frac{(\eqk{x_2}-c_1)^2}{2\sigma^2}\right) & \exp\!\left(-\frac{(\eqk{x_2}-c_2)^2}{2\sigma^2}\right) & \cdots & \exp\!\left(-\frac{(\eqk{x_2}-c_p)^2}{2\sigma^2}\right) \\
-\vdots & \vdots & \ddots & \vdots \\
-\exp\!\left(-\frac{(\eqk{x_n}-c_1)^2}{2\sigma^2}\right) & \exp\!\left(-\frac{(\eqk{x_n}-c_2)^2}{2\sigma^2}\right) & \cdots & \exp\!\left(-\frac{(\eqk{x_n}-c_p)^2}{2\sigma^2}\right)
-\end{pmatrix}.
-\]
+\begin{ejemplo}{Producto interno en $\mathbb{R}^n$}
+El producto interno euclídeo $\langle x, y \rangle = \sum_{i=1}^n x_i y_i$
+convierte a $\mathbb{R}^n$ en un espacio de Hilbert de dimensión finita.
+\end{ejemplo}
 
-\begin{fisicaconexion}{RBF como núcleo de difusión}
-La RBF gaussiana $\exp(-(x-c)^2/(2\sigma^2))$ es la solución de la ecuación de calor $G(x,t) = (4\pi t)^{-1/2}e^{-x^2/(4t)}$ con $t=\sigma^2/2$. Un $\sigma$ pequeño corresponde a un estado poco difundido (alta resolución, sensible al ruido); un $\sigma$ grande suaviza (baja resolución, robusto). Este compromiso motiva la regularización de Tikhonov (Práctica 2).
-\end{fisicaconexion}
-
-\subsection*{Solución por mínimos cuadrados ordinarios}
-\label{sec:minimos_cuadrados}
-
-\begin{definicion}{Función de pérdida cuadrática}
-\label{def:perdida_cuadratica}
-El ajuste por \textbf{mínimos cuadrados ordinarios} (OLS) minimiza la
-suma de residuos al cuadrado:
-\[
-  \mathcal{L}(\equ{\boldsymbol{\theta}}) \;=\;
-  \|\eqk{\mathbf{y}} - \eqvec{A}\equ{\boldsymbol{\theta}}\|_2^2
-  \;=\; \sum_{i=1}^n \bigl(\eqk{y_i} - f(\eqk{x_i};\equ{\boldsymbol{\theta}})\bigr)^2.
-\]
-\end{definicion}
-
-\begin{teorema}{Ecuaciones normales}
-\label{thm:ecuaciones_normales}
-El mínimo global de $\mathcal{L}$ existe y es único cuando $\eqvec{A}$
-tiene rango completo de columnas ($\mathrm{rank}(\eqvec{A}) = p$). El
-minimizador satisface las \textbf{ecuaciones normales}:
-\[
-  \eqvec{A}^\top\eqvec{A}\,\equ{\boldsymbol{\theta}^*}
-  \;=\; \eqvec{A}^\top\eqk{\mathbf{y}},
-\]
-cuya solución es
-\[
-  \equ{\boldsymbol{\theta}^*}
-  \;=\; (\eqvec{A}^\top\eqvec{A})^{-1}\eqvec{A}^\top\eqk{\mathbf{y}}
-  \;=\; \eqvec{A}^+\eqk{\mathbf{y}},
-\]
-donde $\eqvec{A}^+ = (\eqvec{A}^\top\eqvec{A})^{-1}\eqvec{A}^\top$ es
-la pseudoinversa de Moore-Penrose para el caso de rango completo de columnas
-(véase \Cref{prop:pseudoinversa}).
-\end{teorema}
-
-\begin{observacion}{Geometría e inestabilidad numérica}
-La solución $\equ{\boldsymbol{\theta}^*}$ proyecta ortogonalmente $\eqk{\mathbf{y}}$ sobre $\operatorname{col}(\eqvec{A})$, siendo la mejor aproximación en norma $\ell^2$. Sin embargo, formar las ecuaciones normales $\eqvec{A}^\top\eqvec{A}\equ{\boldsymbol{\theta}}=\eqvec{A}^\top\eqk{\mathbf{y}}$ eleva el número de condición al cuadrado: $\kappa(\eqvec{A}^\top\eqvec{A}) = \kappa(\eqvec{A})^2$. Por ello, en la práctica se prefiere resolver el sistema sobredeterminado directamente mediante la SVD (\Cref{alg:lsq_svd}), que es numéricamente estable y proporciona además $\kappa(\eqvec{A})$ sin costo adicional.
+\begin{observacion}{Completitud}
+La completitud es esencial: el espacio de funciones continuas $C[0,1]$ con
+la norma $L^2$ tiene producto interno pero \textit{no} es de Hilbert --- su
+completación es $L^2[0,1]$.
 \end{observacion}
 
-
-\subsection*{Sobreajuste, subajuste y generalización}
-\label{sec:generalizacion}
-
-\begin{definicion}{Error de entrenamiento y prueba}
-\label{def:train_test_error}
-Con $\mathcal{D}_{\mathrm{train}}=\{(\eqk{x_i},\eqk{y_i})\}_{i=1}^n$ y $\mathcal{D}_{\mathrm{test}}=\{(\eqk{x_i'},\eqk{y_i'})\}_{i=1}^{n_{\mathrm{test}}}$, el RMSE de entrenamiento y prueba son:
-\[
-  \eqfn{E}_{\mathrm{train}}=\frac{1}{\sqrt{n}}\left\|
-    \eqvec{A}_{\mathrm{train}}\equ{\boldsymbol{\theta}^*}-\eqk{\mathbf{y}}_{\mathrm{train}}
-  \right\|_2,\qquad
-  \eqfn{E}_{\mathrm{test}}=\frac{1}{\sqrt{n_{\mathrm{test}}}}\left\|
-    \eqvec{A}_{\mathrm{test}}\equ{\boldsymbol{\theta}^*}-\eqk{\mathbf{y}}_{\mathrm{test}}
-  \right\|_2.
-\]
-\end{definicion}
-
-Los tres regímenes característicos son:
-\begin{itemize}[nosep]
-  \item \textbf{Subajuste} ($p$ pequeño): $\eqfn{E}_{\mathrm{train}}$ grande, $\eqfn{E}_{\mathrm{test}}\approx \eqfn{E}_{\mathrm{train}}$.
-  \item \textbf{Ajuste óptimo} ($p\approx p^*$): $\eqfn{E}_{\mathrm{train}}$ pequeño, $\eqfn{E}_{\mathrm{test}}$ mínimo.
-  \item \textbf{Sobreajuste} ($p$ grande): $\eqfn{E}_{\mathrm{train}}\to0$, $\eqfn{E}_{\mathrm{test}}\gg \eqfn{E}_{\mathrm{train}}$.
-\end{itemize}
-
-\begin{fisicaconexion}{Dilema sesgo-varianza}
-En física de mediciones, el error total se descompone en error sistemático (sesgo, relacionado con la resolución) y error estadístico (varianza, relacionado con el ruido). Modelos con pocas bases tienen alto sesgo; modelos con muchas bases tienen alta varianza. La regularización de Tikhonov (Práctica 2) penaliza la norma de los parámetros, moviendo el equilibrio hacia valores intermedios.
+\begin{fisicaconexion}{Espacios de Hilbert en mecánica cuántica}
+En mecánica cuántica, los estados de un sistema se representan como vectores
+en un espacio de Hilbert complejo $\mathcal{H}$. Los observables son operadores
+autoadjuntos sobre $\mathcal{H}$, y la evolución temporal está gobernada por
+operadores unitarios $U(t) = e^{-iHt/\hbar}$.
 \end{fisicaconexion}
 
-\subsection*{Hacia la regularización: anticipo del Capítulo 2}
-\label{sec:regularizacion_preview}
+%───────────────────────────────────────────────────────────────────────────────
+\subsection{Nivel 3: Especiales}
+%───────────────────────────────────────────────────────────────────────────────
 
-Cuando el número de condición de $\eqvec{A}$ es grande, pequeñas
-perturbaciones en $\eqk{\mathbf{y}}$ (ruido de medición, errores de
-redondeo) producen grandes variaciones en $\equ{\boldsymbol{\theta}^*}$
-(véase \Cref{thm:perturbacion}). La \textbf{regularización de Tikhonov}
-(también llamada \textit{ridge regression}) modifica la función de pérdida
-añadiendo una penalización sobre la norma de los parámetros:
-\[
-  \mathcal{L}_\lambda(\equ{\boldsymbol{\theta}}) \;=\;
-  \|\eqk{\mathbf{y}} - \eqvec{A}\equ{\boldsymbol{\theta}}\|_2^2
-  \;+\; \lambda\,\|\equ{\boldsymbol{\theta}}\|_2^2,
-  \quad \lambda > 0.
-\]
-Su solución es
-\[
-  \equ{\boldsymbol{\theta}^*_\lambda}
-  \;=\; (\eqvec{A}^\top\eqvec{A} + \lambda\mathbf{I})^{-1}\eqvec{A}^\top\eqk{\mathbf{y}},
-\]
-y tiene número de condición efectivo
-$\kappa_\lambda = (\sigma_1^2 + \lambda)/(\sigma_p^2 + \lambda)$, que
-disminuye monótonamente con $\lambda$. La Práctica 2 desarrolla esta
-relación con detalle, incluyendo la interpretación espectral via SVD y
-la conexión con la estimación MAP bajo prior gaussiano.
+\begin{estrella}{Reactor de fisión como proceso estocástico}
+La cinética puntual de un reactor nuclear puede modelarse mediante la SDE
+$dn = [\rho n / \Lambda]\,dt + \sqrt{D\,n}\,dW$,
+donde $n$ es la población de neutrones, $\rho$ la reactividad,
+$\Lambda$ el tiempo de generación, y $D$ el coeficiente de Diven.
+La varianza del flujo neutrónico se relaciona con $\rho$ a través de la
+fórmula de Campbell.
+\end{estrella}
 
-% ---------------------------------------------------------------------------
-% MÉTODOS PROPUESTOS
-% ---------------------------------------------------------------------------
-\section*{Métodos propuestos}
-\label{sec:metodos}
+\begin{ejerciciocomp}{Implementación de descenso de gradiente}
+Implemente el \cref{alg:gradient} para la función
+$f(x) = x^2 + 2x + 1$ y verifique que converge al mínimo $x^* = -1$.
+Compare la convergencia con distintas tasas de aprendizaje
+$\eta \in \{0.01, 0.1, 0.5, 1.0\}$.
+\end{ejerciciocomp}
 
-Los cuatro algoritmos siguientes cubren la implementación completa de la
-práctica. Se presentan en pseudocódigo independiente de lenguaje. Para una
-referencia algorítmica sobre las rutinas de álgebra lineal subyacentes,
-véanse \cite{golub2013matrix,trefethen1997numerical}.
 
-\subsection*{Construcción de la matriz de diseño}
-\label{sec:alg_diseno}
+%═══════════════════════════════════════════════════════════════════════════════
+\section{Ecuaciones con coloreado semántico}
+\label{sec:ecuaciones}
+%═══════════════════════════════════════════════════════════════════════════════
 
-\begin{algorithm}
-\caption{Construcción de la matriz de diseño $\mathbf{A}$}
-\label{alg:matriz_diseno}
-\KwIn{Puntos de entrenamiento $\{x_i\}_{i=1}^n$, número de bases $p$,
-  tipo de base (\texttt{monomial}, \texttt{fourier}, \texttt{rbf}),
-  parámetro $\sigma$ (solo para RBF), centros $\{c_j\}$ (solo para RBF)}
-\KwOut{Matriz de diseño $\mathbf{A} \in \mathbb{R}^{n \times p}$}
-\BlankLine
-Inicializar $\mathbf{A} \leftarrow \mathbf{0}_{n \times p}$\;
-\Switch{tipo de base}{
-  \Case{\texttt{monomial}}{
-    \For{$j = 1$ \KwTo $p$}{
-      $A_{ij} \leftarrow x_i^{j-1}$ \quad para todo $i$\;
-    }
-  }
-  \Case{\texttt{fourier}}{
-    $K \leftarrow (p-1)/2$ \tcp*{$p$ debe ser impar: $p=2K+1$}
-    $\omega_1 \leftarrow 2\pi/(b-a)$\;
-    $A_{i,1} \leftarrow 1$ \quad para todo $i$\;
-    \For{$k = 1$ \KwTo $K$}{
-      $A_{i,2k}   \leftarrow \cos(k\,\omega_1\,x_i)$ \quad para todo $i$\;
-      $A_{i,2k+1} \leftarrow \sin(k\,\omega_1\,x_i)$ \quad para todo $i$\;
-    }
-  }
-  \Case{\texttt{rbf gaussiana}}{
-    Distribuir $p$ centros equiespaciados: $c_j = a + (j-1)(b-a)/(p-1)$\;
-    \For{$j = 1$ \KwTo $p$}{
-      $A_{ij} \leftarrow \exp\!\bigl(-(x_i - c_j)^2 / (2\sigma^2)\bigr)$
-        \quad para todo $i$\;
-    }
-  }
+La plantilla define un sistema de coloreado semántico para ecuaciones
+que combina tres ejes: rol sintáctico, estatus epistémico y tipo matemático
+(véase \texttt{config/\allowbreak equation\-styles.tex}).
+Los colores se desactivan globalmente con
+\texttt{\textbackslash eqcolorsfalse} para versiones de impresión en
+blanco y negro.
+
+
+
+
+%───────────────────────────────────────────────────────────────────────────────
+\subsection{Eje 1: Rol sintáctico}
+%───────────────────────────────────────────────────────────────────────────────
+
+Los roles sintácticos son estables entre contextos: una integral siempre es
+un  \eqop{operador} (\texttt{\textbackslash eqop}), un \eqdm{dx} (\texttt{\textbackslash eqdm}) siempre es un diferencial, una
+\eqfn{función} (\texttt{\textbackslash eqfn})  siempre es función. Formulación débil del problema de Poisson:
+
+\begin{equation}
+\label{eq:poisson-weak}
+\eqop{\int_{\eqdom{\Omega}}}
+\equ{\nabla u \cdot \nabla v}
+\, \eqdm{dx}
+=
+\eqop{\int_{\eqdom{\partial\Omega}}}
+\equ{u \frac{\partial v}{\partial n}}
+\, \eqdm{dS}.
+\end{equation}
+
+Aquí $\equ{u}$ y $\equ{v}$ son las incógnitas (\texttt{\textbackslash equ}, \equ{melocotón}),
+$\eqdom{\Omega}$ es el dominio (\texttt{\textbackslash eqdom}, \eqdom{zafiro}),
+las integrales $\eqop{\int}$ son operadores (\texttt{\textbackslash eqop}, \eqop{azul}),
+y $\eqdm{dx}$, $\eqdm{dS}$ son medidas (\texttt{\textbackslash eqdm}, \eqdm{turquesa}).
+
+%───────────────────────────────────────────────────────────────────────────────
+\subsection{Eje 2: Estatus epistémico}
+%───────────────────────────────────────────────────────────────────────────────
+
+El color codifica qué se busca y qué se asume conocido --- la dimensión que
+la tipografía \textit{no puede} representar.
+
+\paragraph{La dualidad $f(x;\theta)$.}
+En un modelo paramétrico $f(x;\theta)$, los roles epistémicos de $x$ y
+$\theta$ se invierten entre física y machine learning:
+
+\medskip
+\textbf{Lectura de física} --- dado el modelo (parámetros \eqk{conocidos}),
+encontrar el estado (\equ{incógnita}):
+
+\begin{equation}
+\label{eq:physics-reading}
+\eqfn{f}\!\left(\equ{x};\, \eqk{\theta}\right)
+= \eqk{y}
+\qquad\Longrightarrow\qquad
+\equ{x^*} = \eqop{\argmin_{x}} \;
+\eqfn{\mathcal{L}}\!\left(\eqfn{f}(\equ{x};\,\eqk{\theta}),\; \eqk{y}\right).
+\end{equation}
+
+\textbf{Lectura de ML} --- dado el dato (\eqk{conocido}), aprender los
+parámetros (\equ{incógnita}):
+
+\begin{equation}
+\label{eq:ml-reading}
+\eqfn{f}\!\left(\eqk{x};\, \equ{\theta}\right)
+= \equ{\hat{y}}
+\qquad\Longrightarrow\qquad
+\equ{\theta^*} = \eqop{\argmin_{\theta}} \;
+\eqfn{\mathcal{L}}\!\left(\eqfn{f}(\eqk{x};\,\equ{\theta}),\; \eqk{y}\right).
+\end{equation}
+
+La estructura de ambas ecuaciones es idéntica; solo cambia el color.
+El lector identifica de inmediato quién es dato y quién es incógnita sin
+consultar el texto.
+
+%───────────────────────────────────────────────────────────────────────────────
+\subsection{Eje 3: Tipo matemático}
+%───────────────────────────────────────────────────────────────────────────────
+
+La tipografía ya codifica tipo (negrita = vector, doble barra = conjunto);
+el color \textit{refuerza} cuando la distinción de rango es importante.
+Ecuaciones de Maxwell:
+
+\begin{align}
+\eqop{\nabla \cdot} \eqvec{\mathbf{E}}
+  &= \eqcon{\frac{1}{\varepsilon_0}} \eqk{\rho},
+  \label{eq:gauss} \\[4pt]
+\eqop{\nabla \times} \eqvec{\mathbf{E}}
+  &= -\eqop{\frac{\partial}{\partial t}} \eqvec{\mathbf{B}},
+  \label{eq:faraday} \\[4pt]
+\eqop{\nabla \cdot} \eqvec{\mathbf{B}}
+  &= 0,
+  \label{eq:gauss-mag} \\[4pt]
+\eqop{\nabla \times} \eqvec{\mathbf{B}}
+  &= \eqcon{\mu_0} \eqvec{\mathbf{J}}
+   + \eqcon{\mu_0 \varepsilon_0}
+     \eqop{\frac{\partial}{\partial t}} \eqvec{\mathbf{E}}.
+  \label{eq:ampere}
+\end{align}
+
+Los campos vectoriales $\mathbf{E}$, $\mathbf{B}$, $\mathbf{J}$ usan
+\texttt{\textbackslash eqvec} (rojo), las constantes $\varepsilon_0$, $\mu_0$ usan
+\texttt{\textbackslash eqcon} (lavanda), los operadores diferenciales usan \texttt{\textbackslash eqop}
+(azul), y la densidad de carga $\rho$ es un dato \texttt{\textbackslash eqk} (malva).
+
+%───────────────────────────────────────────────────────────────────────────────
+\subsection{Los tres ejes juntos: Schrödinger}
+%───────────────────────────────────────────────────────────────────────────────
+
+\begin{equation}
+\label{eq:schrodinger}
+\eqop{\hat{H}} \equ{\psi}
+=
+\left[
+  \eqcon{-\frac{\hbar^2}{2m}} \eqop{\nabla^2}
+  + \eqfn{V(\mathbf{r})}
+\right] \equ{\psi}
+=
+\equ{E} \equ{\psi}.
+\end{equation}
+
+El hamiltoniano $\hat{H}$ y el laplaciano son \eqop{operadores},
+$\psi$ y $E$ son las \equ{incógnitas},
+$V(\mathbf{r})$ es una \eqfn{función} conocida,
+y $\hbar^2/2m$ es una \eqcon{constante} universal.
+
+%───────────────────────────────────────────────────────────────────────────────
+\subsection{Macros compuestos}
+%───────────────────────────────────────────────────────────────────────────────
+
+Los macros compuestos combinan roles para patrones frecuentes.
+
+Proceso de Ornstein--Uhlenbeck con \texttt{\textbackslash eqSDE}:
+
+\begin{equation}
+\label{eq:ou}
+\eqSDE{X_t}{-\eqk{\theta} \equ{X_t}}{\sigma}.
+\end{equation}
+
+Ecuación de Fokker--Planck con \texttt{\textbackslash eqpdv}:
+
+\begin{equation}
+\label{eq:fokker-planck}
+\eqpdv{p}{t}
+=
+\eqop{-\frac{\partial}{\partial x}}
+\left[ \eqfn{\mu(x,t)} \equ{p} \right]
++
+\eqcon{\frac{1}{2}}
+\eqop{\frac{\partial^2}{\partial x^2}}
+\left[ \eqfn{\sigma^2(x,t)} \equ{p} \right].
+\end{equation}
+
+Score matching (lectura de ML: $\theta$ es incógnita, $x$ es dato):
+
+\begin{equation}
+\label{eq:score-matching}
+\eqfn{\mathcal{L}}(\equ{\theta})
+=
+\eqcon{\frac{1}{2}}
+\eqop{\mathbb{E}_{\eqk{x} \sim \eqdom{p_{\text{data}}}}}
+\left[
+  \norm{
+    \eqfn{s_{\equ{\theta}}}(\eqk{x})
+    - \eqop{\nabla_{\eqk{x}}} \log \eqk{p(x)}
+  }^2
+\right].
+\end{equation}
+
+Ecuaciones de campo de Einstein con \texttt{\textbackslash eqten}:
+
+\begin{equation}
+\label{eq:einstein}
+\equ{R_{\mu\nu}} - \eqcon{\frac{1}{2}} \eqten{g_{\mu\nu}} \equ{R}
++ \eqcon{\Lambda} \eqten{g_{\mu\nu}}
+= \eqcon{\frac{8\pi G}{c^4}} \eqk{T_{\mu\nu}}.
+\end{equation}
+
+%───────────────────────────────────────────────────────────────────────────────
+\subsection{Toggle: versión sin color}
+%───────────────────────────────────────────────────────────────────────────────
+
+Con \texttt{\textbackslash eqcolorsfalse} en un grupo local, la misma ecuación se renderiza
+sin color (útil para impresión):
+
+{%
+\eqcolorsfalse
+\begin{equation}
+\eqop{\hat{H}} \equ{\psi}
+=
+\left[
+  \eqcon{-\frac{\hbar^2}{2m}} \eqop{\nabla^2}
+  + \eqfn{V(\mathbf{r})}
+\right] \equ{\psi}
+=
+\equ{E} \equ{\psi}.
+\tag{\ref{eq:schrodinger}$'$}
+\end{equation}
+}%
+
+
+%═══════════════════════════════════════════════════════════════════════════════
+\section{Tablas}
+\label{sec:tablas}
+%═══════════════════════════════════════════════════════════════════════════════
+
+La configuración de tablas
+(\texttt{config/\allowbreak tables\-config.tex})
+proporciona tres mecanismos contra el desbordamiento, tipos de columna
+extendidos, y estilo Catppuccin con encabezados coloreados y filas alternadas.
+
+%───────────────────────────────────────────────────────────────────────────────
+\subsection{Tabla adaptativa con \texttt{tabularx}}
+%───────────────────────────────────────────────────────────────────────────────
+
+Las columnas \texttt{X} (izquierda), \texttt{Y} (centrada) y \texttt{Z}
+(derecha) se expanden proporcionalmente para llenar
+\texttt{\textbackslash textwidth}.
+
+\begin{acadtable}{tab:metodos}{Comparación de métodos de optimización}
+  \begin{tabularx}{\textwidth}{l Y Y Y}
+    \toprule
+    \headerrow
+    \thead{Método} & \thead{Convergencia} & \thead{Memoria} & \thead{Hessiano} \\
+    \midrule
+    Descenso de gradiente & $\mathcal{O}(1/k)$        & $\mathcal{O}(n)$   & No  \\
+    \rowcolor{tablerowalt}
+    Newton                & $\mathcal{O}(1/k^2)$      & $\mathcal{O}(n^2)$ & Sí  \\
+    L-BFGS                & Superlineal                & $\mathcal{O}(mn)$  & No  \\
+    \rowcolor{tablerowalt}
+    Adam                  & $\mathcal{O}(1/\sqrt{k})$  & $\mathcal{O}(n)$  & No  \\
+    \bottomrule
+  \end{tabularx}
+\end{acadtable}
+
+%───────────────────────────────────────────────────────────────────────────────
+\subsection{Alineación numérica con \texttt{siunitx}}
+%───────────────────────────────────────────────────────────────────────────────
+
+Las columnas tipo \texttt{S} alinean números por el separador decimal.
+Los encabezados van entre \texttt{\{llaves\}} para que \texttt{siunitx}
+no intente parsearlos.
+
+\begin{acadtable}{tab:benchmark}{Resultados de benchmark en MNIST}
+  \begin{tabular}{l S[table-format=2.2] S[table-format=1.4] S[table-format=5.0]}
+    \toprule
+    \headerrow
+    \thead{Modelo} & {\thead{Error (\si{\percent})}} & {\thead{$p$-valor}} & {\thead{Parámetros}} \\
+    \midrule
+    MLP (1 capa)   &  5.12 & 0.0412 &   784 \\
+    \rowcolor{tablerowalt}
+    MLP (3 capas)  &  2.87 & 0.0023 &  2048 \\
+    CNN            &  0.95 & 0.0001 &  3200 \\
+    \rowcolor{tablerowalt}
+    ResNet-18      &  0.41 & 0.0001 & 11200 \\
+    \bottomrule
+  \end{tabular}
+  \tablenote{}{Todos los modelos entrenados con Adam, $\eta = \num{1e-3}$, 100 épocas.}
+\end{acadtable}
+
+%───────────────────────────────────────────────────────────────────────────────
+\subsection{Overflow controlado con \texttt{fittable}}
+%───────────────────────────────────────────────────────────────────────────────
+
+El entorno \texttt{fittable} mide el ancho de una tabla y la reescala
+\textit{solo} si excede \texttt{\textbackslash textwidth}. Es la solución de mínimo esfuerzo
+para tablas anchas existentes.
+
+\begin{acadtable}{tab:wide}{Propiedades termofísicas (reescalada automáticamente)}
+  \begin{fittable}
+    \begin{tabular}{l c c c c c c c c}
+      \toprule
+      \headerrow
+      \thead{Exp.} & \thead{$T$ (\si{\kelvin})} & \thead{$P$ (\si{\mega\pascal})}
+        & \thead{$\rho$ (\si{\kg\per\m\cubed})} & \thead{$\mu$ (\si{\pascal\second})}
+        & \thead{$k$ (\si{\watt\per\m\per\kelvin})} & \thead{$c_p$ (\si{\joule\per\kg\per\kelvin})}
+        & \thead{Re} & \thead{Nu} \\
+      \midrule
+      A-01 & 300 & 0.1 & 1.177 & \num{1.85e-5} & 0.026 & 1005 & 12400 & 42.3 \\
+      \rowcolor{tablerowalt}
+      A-02 & 400 & 0.5 & 0.883 & \num{2.29e-5} & 0.034 & 1014 & 18700 & 58.1 \\
+      A-03 & 500 & 1.0 & 0.706 & \num{2.67e-5} & 0.041 & 1030 & 24200 & 73.9 \\
+      \rowcolor{tablerowalt}
+      A-04 & 600 & 2.0 & 0.588 & \num{3.02e-5} & 0.047 & 1051 & 31500 & 91.2 \\
+      \bottomrule
+    \end{tabular}
+  \end{fittable}
+\end{acadtable}
+
+%───────────────────────────────────────────────────────────────────────────────
+\subsection{Columnas de ancho fijo}
+%───────────────────────────────────────────────────────────────────────────────
+
+Los tipos \texttt{L\{ancho\}}, \texttt{C\{ancho\}} y \texttt{R\{ancho\}}
+permiten wrapping automático con alineación vertical centrada.
+
+\begin{acadtable}{tab:datasets}{Conjuntos de datos utilizados}
+  \begin{tabular}{l C{3cm} L{5.5cm} R{2cm}}
+    \toprule
+    \headerrow
+    \thead{Dataset} & \thead{Dominio} & \thead{Descripción} & \thead{Muestras} \\
+    \midrule
+    MNIST     & Visión & Dígitos escritos a mano, $28\times28$ px, escala de grises
+                       & \num{70000} \\
+    \rowcolor{tablerowalt}
+    CIFAR-10  & Visión & Imágenes naturales de 10 clases, $32\times32$ px, color
+                       & \num{60000} \\
+    Penn TB   & NLP    & Corpus con anotaciones sintácticas
+                       & \num{49208} \\
+    \bottomrule
+  \end{tabular}
+\end{acadtable}
+
+
+%═══════════════════════════════════════════════════════════════════════════════
+\section{Algoritmos}
+\label{sec:algoritmos}
+%═══════════════════════════════════════════════════════════════════════════════
+
+Los algoritmos usan \texttt{algorithm2e} con colores Catppuccin configurados
+en \texttt{config/algorithms.tex}: palabras clave en malva, comentarios en
+gris, números de línea en celeste, y líneas verticales coloreadas.
+
+\begin{algorithm}[H]
+\caption{Descenso de gradiente}
+\label{alg:gradient}
+\LinesNumbered
+\KwIn{$f: \mathbb{R}^n \to \mathbb{R}$, $\nabla f$, $x_0$, $\eta$, $\varepsilon$}
+\KwOut{Mínimo aproximado $x^*$}
+$x \leftarrow x_0$\;
+\While{$\|\nabla f(x)\| > \varepsilon$}{
+  $x \leftarrow x - \eta \nabla f(x)$\;
 }
-\Return $\mathbf{A}$\;
+\Return $x$\;
 \end{algorithm}
 
-\subsection*{Ajuste por mínimos cuadrados vía SVD}
-\label{sec:alg_svd}
-
 \begin{algorithm}[H]
-\caption{Mínimos cuadrados estable por SVD}
-\label{alg:lsq_svd}
-\KwIn{Matriz de diseño $\mathbf{A} \in \mathbb{R}^{n \times p}$,
-  vector de datos $\mathbf{y} \in \mathbb{R}^n$}
-\KwOut{Parámetros $\boldsymbol{\theta}^* \in \mathbb{R}^p$,
-  número de condición $\kappa$, valores singulares $\boldsymbol{\sigma}$}
-\BlankLine
-Calcular la SVD thin: $\mathbf{A} = \hat{\mathbf{U}}\,\hat{\boldsymbol{\Sigma}}\,\mathbf{V}^\top$
-  \tcp*{$\hat{\mathbf{U}} \in \mathbb{R}^{n\times p}$,
-    $\hat{\boldsymbol{\Sigma}} = \mathrm{diag}(\sigma_1,\ldots,\sigma_p)$,
-    $\mathbf{V} \in \mathbb{R}^{p\times p}$}
-$\kappa \leftarrow \sigma_1 / \sigma_p$ \tcp*{número de condición, véase \Cref{def:numero_condicion}}
-$\mathbf{d} \leftarrow \hat{\mathbf{U}}^\top \mathbf{y}$
-  \tcp*{proyección de $\mathbf{y}$ sobre vectores singulares izquierdos}
-$\tilde{\mathbf{d}} \leftarrow d_j / \sigma_j$ \quad para todo $j$
-  \tcp*{división elemento a elemento}
-$\boldsymbol{\theta}^* \leftarrow \mathbf{V}\,\tilde{\mathbf{d}}$
-  \tcp*{transformación al espacio de parámetros, véase \Cref{prop:pseudoinversa}}
-\Return $\boldsymbol{\theta}^*$, $\kappa$, $(\sigma_1,\ldots,\sigma_p)$\;
+\caption{Adam (un paso)}
+\label{alg:adam}
+\LinesNumbered
+\KwIn{$g$, $m$, $v$, $t$, $\beta_1$, $\beta_2$, $\eta$, $\varepsilon$}
+\KwOut{$\Delta\theta$, $m$, $v$, $t$}
+$m \leftarrow \beta_1 m + (1-\beta_1) g$\;
+$v \leftarrow \beta_2 v + (1-\beta_2) g^2$\;
+$\hat{m} \leftarrow m / (1-\beta_1^t)$\;
+$\hat{v} \leftarrow v / (1-\beta_2^t)$\;
+$\Delta\theta \leftarrow -\eta \hat{m} / (\sqrt{\hat{v}} + \varepsilon)$\;
+$t \leftarrow t+1$\;
+\Return $\Delta\theta$, $m$, $v$, $t$\;
 \end{algorithm}
 
-\subsection*{Cálculo de métricas de error}
-\label{sec:alg_error}
-
 \begin{algorithm}[H]
-\caption{Evaluación de métricas de error}
-\label{alg:metricas}
-\KwIn{Parámetros ajustados $\boldsymbol{\theta}^*$, matriz de prueba
-  $\mathbf{A}_{\mathrm{test}}$, valores de referencia $\mathbf{y}_{\mathrm{test}}$}
-\KwOut{RMSE, MAE, $E_\infty$, $E_{\mathrm{rel}}$}
-\BlankLine
-$\hat{\mathbf{y}} \leftarrow \mathbf{A}_{\mathrm{test}}\,\boldsymbol{\theta}^*$
-  \tcp*{predicción del modelo}
-$\mathbf{r} \leftarrow \hat{\mathbf{y}} - \mathbf{y}_{\mathrm{test}}$
-  \tcp*{vector de residuos}
-$n_t \leftarrow$ longitud de $\mathbf{y}_{\mathrm{test}}$\;
-$\mathrm{RMSE} \leftarrow \|\mathbf{r}\|_2 / \sqrt{n_t}$\;
-$\mathrm{MAE}  \leftarrow \|\mathbf{r}\|_1 / n_t$\;
-$E_\infty      \leftarrow \|\mathbf{r}\|_\infty$\;
-$E_{\mathrm{rel}} \leftarrow \|\mathbf{r}\|_2 / \|\mathbf{y}_{\mathrm{test}}\|_2$\;
-\Return RMSE, MAE, $E_\infty$, $E_{\mathrm{rel}}$\;
-\end{algorithm}
-
-\subsection*{Experimento de sobreajuste: barrido en $p$}
-\label{sec:alg_barrido}
-
-\begin{algorithm}[H]
-\caption{Curva de error en función del número de bases $p$}
-\label{alg:barrido_p}
-\KwIn{Datos de entrenamiento $\{(x_i, y_i)\}_{i=1}^n$, datos de prueba
-  $\{(x_i^\prime, y_i^\prime)\}_{i=1}^{n_t}$, rango de $p$: $[p_{\min}, p_{\max}]$,
-  tipo de base, parámetro $\sigma$ (RBF)}
-\KwOut{Vectores $\boldsymbol{\kappa}$, $\mathbf{E}_{\mathrm{train}}$,
-  $\mathbf{E}_{\mathrm{test}}$ en función de $p$}
-\BlankLine
-Inicializar listas vacías para $\kappa(p)$, $E_{\mathrm{train}}(p)$, $E_{\mathrm{test}}(p)$\;
-\For{$p = p_{\min}$ \KwTo $p_{\max}$}{
-  $\mathbf{A}_{\mathrm{train}} \leftarrow$ \textsc{MatrizDiseño}($\{x_i\}$, $p$, base, $\sigma$) \tcp*{Alg.~\ref{alg:matriz_diseno}}
-  $\boldsymbol{\theta}^*, \kappa, \cdot \leftarrow$ \textsc{MínCuadSVD}($\mathbf{A}_{\mathrm{train}}, \mathbf{y}$) \tcp*{Alg.~\ref{alg:lsq_svd}}
-  $E_{\mathrm{train}} \leftarrow$ \textsc{Métricas}($\boldsymbol{\theta}^*, \mathbf{A}_{\mathrm{train}}, \mathbf{y}$).RMSE \tcp*{Alg.~\ref{alg:metricas}}
-  $\mathbf{A}_{\mathrm{test}} \leftarrow$ \textsc{MatrizDiseño}($\{x_i^\prime\}$, $p$, base, $\sigma$)\;
-  $E_{\mathrm{test}} \leftarrow$ \textsc{Métricas}($\boldsymbol{\theta}^*, \mathbf{A}_{\mathrm{test}}, \mathbf{y}_{\mathrm{test}}$).RMSE\;
-  Registrar $\kappa$, $E_{\mathrm{train}}$, $E_{\mathrm{test}}$ para este $p$\;
+\caption{Euler--Maruyama para SDEs}
+\label{alg:em}
+\LinesNumbered
+\KwIn{$dX_t = \mu(X_t,t)\,dt + \sigma(X_t,t)\,dW_t$, $X_0$, $\Delta t$, $T$}
+\KwOut{Trayectoria $\{X_k\}_{k=0}^{N}$}
+$X \leftarrow X_0$\;
+\For{$k = 0$ \KwTo $N-1$}{
+  $t \leftarrow k\Delta t$\;
+  $\xi \leftarrow \mathcal{N}(0,1)$\tcp*{ruido gaussiano}
+  $X \leftarrow X + \mu(X,t)\Delta t + \sigma(X,t)\sqrt{\Delta t}\,\xi$\;
 }
-\Return $\boldsymbol{\kappa}(p)$, $\mathbf{E}_{\mathrm{train}}(p)$, $\mathbf{E}_{\mathrm{test}}(p)$\;
+\Return trayectoria\;
 \end{algorithm}
 
-% ---------------------------------------------------------------------------
-% EXPERIMENTOS NUMÉRICOS
-% ---------------------------------------------------------------------------
-\section*{Experimentos numéricos}
-\addcontentsline{toc}{section}{Experimentos numéricos}
-\label{sec:experimentos}
 
-\subsection*{Configuración general}
-\addcontentsline{toc}{subsection}{Configuración general}
-\label{sec:config}
+%═══════════════════════════════════════════════════════════════════════════════
+\section{Gráficas con \texttt{pgfplots}}
+\label{sec:pgfplots}
+%═══════════════════════════════════════════════════════════════════════════════
 
-\paragraph{Funciones de prueba.}
-Se utilizan tres funciones con distinta regularidad para evaluar el comportamiento de las bases:
+La configuración de \texttt{pgfplots}
+(\texttt{config/\allowbreak pgfplots\-config.tex})
+define un cycle list de 8 colores Catppuccin, estilos de ejes
+(\texttt{catppuccin\-clean} y \texttt{catppuccin\-filled}),
+y colormaps secuencial/divergente.
 
-\begin{itemize}[nosep, leftmargin=1.5em]
-  \item \textbf{Función periódica suave:}
-    \[
-      \eqfn{f}_1(\eqk{t}) = \cos\!\left(\eqcon{\omega_0}\,\eqk{t} + \tfrac{\pi}{4}\right),
-      \qquad \eqk{t} \in [0, 2\pi],\ \eqcon{\omega_0}=1.
-    \]
-    Es analítica y periódica. Benigna para Fourier, peligrosa para monomios de grado alto.
+%───────────────────────────────────────────────────────────────────────────────
+\subsection{Curvas con cycle list automático}
+%───────────────────────────────────────────────────────────────────────────────
 
-  \item \textbf{Función de Runge (analítica con polos próximos):}
-    \[
-      \eqfn{f}_2(\eqk{x}) = \frac{1}{1+25\eqk{x}^2},
-      \qquad \eqk{x} \in [-1,1].
-    \]
-    Tiene polos en $\pm i/5$; desencadena el fenómeno de Runge en puntos equiespaciados.
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+      catppuccin-clean,
+      width=0.85\textwidth,
+      height=6cm,
+      xlabel={Época},
+      ylabel={Pérdida (log)},
+      title={Convergencia de optimizadores},
+      ymode=log,
+      xmin=0, xmax=100,
+      legend pos=north east,
+    ]
+      \addplot+[thick, no markers, domain=0:100, samples=80]
+        {2*exp(-0.02*x) + 0.1};
+      \addlegendentry{SGD}
 
-  \item \textbf{Función valor absoluto (continua no diferenciable):}
-    \[
-      \eqfn{f}_3(\eqk{x}) = |\eqk{x}|,
-      \qquad \eqk{x} \in [-1,1].
-    \]
-    Es continua pero no diferenciable en $\eqk{x}=0$; limita la convergencia de Fourier a $O(p^{-1})$ (fenómeno de Gibbs).
-\end{itemize}
+      \addplot+[thick, no markers, domain=0:100, samples=80]
+        {2*exp(-0.04*x) + 0.05};
+      \addlegendentry{Momentum}
 
-\paragraph{Parámetros fijos.}
-\begin{itemize}[nosep, leftmargin=1.5em]
-  \item \textbf{Puntos de entrenamiento:} $n = 80$ puntos equiespaciados en el dominio correspondiente.
-  \item \textbf{Puntos de prueba:} $n_{\mathrm{test}} = 500$ puntos uniformemente distribuidos en el mismo dominio, generados \emph{antes} de cualquier ajuste y no modificados posteriormente.
-  \item \textbf{Número de parámetros \(p\) (común para las tres bases):}
-    \[
-      p \in \{3, 5, 7, 9, 11, 13, 15, 17, 19, 21\}.
-    \]
-    (Para Fourier, \(p\) debe ser impar; esta secuencia lo cumple. Para monomios y RBF no hay restricción.)
-  \item \textbf{Ruido de observación:} En la Parte A se fija $\eqk{\varepsilon_i}=0$ (sin ruido). En la Parte B se añade ruido gaussiano blanco aditivo $\eqk{\varepsilon_i} \sim \mathcal{N}(0,\sigma_\varepsilon^2)$ con $\sigma_\varepsilon \in \{0.05, 0.1, 0.2\}$.
-\end{itemize}
+      \addplot+[thick, no markers, domain=0:100, samples=80]
+        {2*exp(-0.07*x) + 0.02};
+      \addlegendentry{Adam}
 
-\paragraph{Métricas registradas.}
-Para cada experimento (combinación de base, función y \(p\)) se almacenan:
-\begin{itemize}[nosep, leftmargin=1.5em]
-  \item RMSE de entrenamiento y de prueba.
-  \item Error máximo $E_\infty$ en prueba.
-  \item Número de condición $\kappa_2(\mathbf{A})$ obtenido vía SVD (\Cref{prop:cond_svd}).
-  \item Norma de los parámetros $\|\boldsymbol{\theta}^*\|_2$.
-\end{itemize}
+      \addplot+[thick, no markers, domain=0:100, samples=80]
+        {2*exp(-0.05*x) + 0.03};
+      \addlegendentry{RMSprop}
+    \end{axis}
+  \end{tikzpicture}
+  \caption{Curvas de pérdida para distintos optimizadores. Los colores
+           provienen del cycle list Catppuccin automáticamente.}
+  \label{fig:optimizers}
+\end{figure}
 
-%─────────────────────────────────────────────────────────────────────
-%─────────────────────────────────────────────────────────────────────
-\subsection*{Parte A — Aproximación sin ruido}
-\addcontentsline{toc}{subsection}{Parte A: Aproximación sin ruido}
-\label{sec:parteA}
+%───────────────────────────────────────────────────────────────────────────────
+\subsection{Funciones analíticas}
+%───────────────────────────────────────────────────────────────────────────────
 
-En esta parte se fija \(\eqk{\varepsilon_i}=0\) (sin ruido). El error de prueba refleja exclusivamente la capacidad de representación de cada base. El objetivo es determinar el número óptimo de parámetros \(p^*\) para cada combinación (base, función) y analizar la evolución del número de condición \(\kappa(\mathbf{A})\).
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+      catppuccin-clean,
+      width=0.85\textwidth,
+      height=6cm,
+      xlabel={$x$},
+      ylabel={$\psi_n(x)$},
+      title={Funciones propias del oscilador armónico cuántico},
+      domain=-4:4,
+      samples=150,
+      ymin=-1.2, ymax=1.5,
+      legend pos=south east,
+      no markers,
+    ]
+      \addplot+[thick] {exp(-x^2/2) * 0.7511};
+      \addlegendentry{$\psi_0$}
+      \addplot+[thick] {2*x * exp(-x^2/2) * 0.5311};
+      \addlegendentry{$\psi_1$}
+      \addplot+[thick] {(4*x^2 - 2) * exp(-x^2/2) * 0.2659};
+      \addlegendentry{$\psi_2$}
+      \addplot+[thick] {(8*x^3 - 12*x) * exp(-x^2/2) * 0.1083};
+      \addlegendentry{$\psi_3$}
+      \addplot+[thick, dashed, black!40] {0.1*x^2};
+      \addlegendentry{$V(x) \propto x^2$}
+    \end{axis}
+  \end{tikzpicture}
+  \caption{Primeras cuatro autofunciones $\psi_n(x) = H_n(x)\,e^{-x^2/2}$
+           del oscilador armónico cuántico.}
+  \label{fig:harmonic}
+\end{figure}
 
-\begin{ejerciciocomp}{Barrido en \(p\): errores, condición y espectro}
-\label{ej:barrido_sinruido}
+%───────────────────────────────────────────────────────────────────────────────
+\subsection{Barras y scatter}
+%───────────────────────────────────────────────────────────────────────────────
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+      catppuccin-clean,
+      width=0.85\textwidth,
+      height=5.5cm,
+      ybar=4pt,
+      bar width=10pt,
+      xlabel={Modelo},
+      ylabel={Precisión (\%)},
+      title={Benchmark en CIFAR-10},
+      symbolic x coords={MLP, CNN, ResNet-18, ResNet-50, ViT-S},
+      xtick=data,
+      ymin=60, ymax=100,
+      nodes near coords,
+      nodes near coords style={font=\tiny, color=CtpSubtext0},
+      legend pos=north west,
+      enlarge x limits=0.15,
+    ]
+      \addplot coordinates {(MLP,72.3) (CNN,85.1) (ResNet-18,93.2) (ResNet-50,95.4) (ViT-S,96.1)};
+      \addlegendentry{Sin aumento}
+      \addplot coordinates {(MLP,74.8) (CNN,89.7) (ResNet-18,95.6) (ResNet-50,96.9) (ViT-S,97.5)};
+      \addlegendentry{Con aumento}
+    \end{axis}
+  \end{tikzpicture}
+  \caption{Precisión en CIFAR-10 con y sin aumento de datos.}
+  \label{fig:cifar-bar}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+      catppuccin-clean,
+      width=0.85\textwidth,
+      height=5.5cm,
+      xlabel={$\log_{10}(N)$},
+      ylabel={Error de generalización},
+      title={Scaling laws: error vs tamaño del dataset},
+      legend pos=north east,
+    ]
+      \addplot+[only marks, mark size=2pt,
+        error bars/.cd, y dir=both, y explicit,
+      ] coordinates {
+        (2, 0.45) +- (0, 0.08)
+        (3, 0.28) +- (0, 0.05)
+        (4, 0.15) +- (0, 0.03)
+        (5, 0.09) +- (0, 0.02)
+        (6, 0.06) +- (0, 0.01)
+      };
+      \addlegendentry{Modelo S}
+
+      \addplot+[only marks, mark size=2pt,
+        error bars/.cd, y dir=both, y explicit,
+      ] coordinates {
+        (2, 0.38) +- (0, 0.07)
+        (3, 0.18) +- (0, 0.04)
+        (4, 0.08) +- (0, 0.02)
+        (5, 0.04) +- (0, 0.01)
+        (6, 0.025) +- (0, 0.005)
+      };
+      \addlegendentry{Modelo L}
+
+      \addplot+[no markers, thick, CtpBlue, dashed, domain=2:6, samples=50]
+        {0.9 * 10^(-0.45*x)};
+      \addlegendentry{$\varepsilon \propto N^{-0.45}$}
+      \addplot+[no markers, thick, CtpPeach, dashed, domain=2:6, samples=50]
+        {1.2 * 10^(-0.55*x)};
+      \addlegendentry{$\varepsilon \propto N^{-0.55}$}
+    \end{axis}
+  \end{tikzpicture}
+  \caption{Scaling laws empíricas con barras de error ($\pm 1\sigma$).}
+  \label{fig:scaling}
+\end{figure}
+
+%───────────────────────────────────────────────────────────────────────────────
+\subsection{Colormaps}
+%───────────────────────────────────────────────────────────────────────────────
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+      catppuccin-clean,
+      width=0.48\textwidth,
+      height=5.5cm,
+      xlabel={$x$}, ylabel={$y$},
+      title={Secuencial},
+      view={0}{90},
+      colormap name=catppuccin-heat,
+      colorbar,
+      colorbar style={
+        ylabel={$f$},
+        ylabel style={color=CtpText},
+        tick label style={color=CtpSubtext0},
+      },
+    ]
+      \addplot3[surf, shader=interp,
+        domain=-3.14:3.14, domain y=-3.14:3.14, samples=40,
+      ] {sin(deg(x)) * cos(deg(y))};
+    \end{axis}
+  \end{tikzpicture}%
+  \hfill%
+  \begin{tikzpicture}
+    \begin{axis}[
+      catppuccin-clean,
+      width=0.48\textwidth,
+      height=5.5cm,
+      xlabel={$x$}, ylabel={$y$},
+      title={Divergente},
+      view={0}{90},
+      colormap name=catppuccin-diverge,
+      colorbar,
+      colorbar style={
+        ylabel={$r$},
+        ylabel style={color=CtpText},
+        tick label style={color=CtpSubtext0},
+      },
+    ]
+      \addplot3[surf, shader=interp,
+        domain=-3.14:3.14, domain y=-3.14:3.14, samples=40,
+      ] {sin(deg(x)) * sin(deg(y))};
+    \end{axis}
+  \end{tikzpicture}
+  \caption{Colormaps Catppuccin. Izquierda: \texttt{catppuccin-heat}
+           (secuencial, para magnitudes). Derecha: \texttt{catppuccin-diverge}
+           (divergente, para residuos con signo).}
+  \label{fig:colormaps}
+\end{figure}
+
+
+%═══════════════════════════════════════════════════════════════════════════════
+\section{Código fuente}
+\label{sec:codigo-breve}
+%═══════════════════════════════════════════════════════════════════════════════
+
+La configuración de \texttt{listings}
+(\texttt{config/\allowbreak listings\-catppuccin.tex})
+mapea las categorías sintácticas de cada lenguaje a la paleta Catppuccin:
+keywords en malva, builtins en rojo, strings en verde, comentarios en gris
+itálico, tipos en amarillo, funciones en azul, módulos en turquesa, y
+macros/decoradores en rosa. Ejemplos breves aquí; la galería completa de
+10 lenguajes está en el \cref{ap:codigo}.
+
+\begin{lstlisting}[style=python, caption={Red neuronal mínima en Python}]
+import numpy as np
+
+class Perceptron:
+    def __init__(self, dim_in, dim_out):
+        self.W = np.random.randn(dim_in, dim_out) * 0.01
+        self.b = np.zeros(dim_out)
+
+    def forward(self, x):
+        return np.maximum(0, x @ self.W + self.b)  # ReLU
+\end{lstlisting}
+
+\begin{lstlisting}[style=rust, caption={Trait genérico en Rust}]
+trait OdeSolver {
+    fn step(&self, f: &dyn Fn(f64, &[f64]) -> Vec<f64>,
+            t: f64, y: &[f64], dt: f64) -> Vec<f64>;
+}
+
+struct RungeKutta4;
+
+impl OdeSolver for RungeKutta4 {
+    fn step(&self, f: &dyn Fn(f64, &[f64]) -> Vec<f64>,
+            t: f64, y: &[f64], dt: f64) -> Vec<f64> {
+        let n = y.len();
+        let k1 = f(t, y);
+        // ... (RK4 completo en Apendice A)
+        k1  // placeholder
+    }
+}
+\end{lstlisting}
+
+
+%═══════════════════════════════════════════════════════════════════════════════
+\section{Ejercicios}
+\label{sec:ejercicios}
+%═══════════════════════════════════════════════════════════════════════════════
+
+Dos tipos: ejercicios teóricos (sin caja, numerados por capítulo) y
+ejercicios computacionales (en caja coloreada con título).
+
+\begin{ejercicio}
+Demuestre que la función de pérdida MSE para regresión lineal conduce a las
+ecuaciones normales $X^\top X \hat{\beta} = X^\top y$.
+\end{ejercicio}
+
+\begin{ejercicio}
+Sea $f(x) = e^{-x^2}$. Calcule la transformada de Fourier de $f$ y
+verifique que es un punto fijo del operador $\mathcal{F}$ (salvo escala).
+\end{ejercicio}
+
+\begin{ejerciciocomp}{Simulación de proceso OU}
+Simule la ecuación $dX = -\theta X\,dt + \sigma\,dW$ usando el
+\cref{alg:em} y compare la distribución estacionaria numérica con la
+teórica $\mathcal{N}(0, \sigma^2/(2\theta))$. Use $\theta = 2$,
+$\sigma = 1$, $\Delta t = 10^{-3}$, $T = 100$.
+\end{ejerciciocomp}
+
+
+%═══════════════════════════════════════════════════════════════════════════════
+\section{Elementos auxiliares}
+\label{sec:auxiliares}
+%═══════════════════════════════════════════════════════════════════════════════
+
+%───────────────────────────────────────────────────────────────────────────────
+\subsection{Indicador de dificultad}
+%───────────────────────────────────────────────────────────────────────────────
+
+El comando \texttt{\textbackslash dificultad\{mat\}\{fis\}} produce una caja con estrellas:
+
 \dificultad{3}{2}
 
-Para cada una de las nueve combinaciones (tres bases \(\times\) tres funciones), siga estos pasos:
+%───────────────────────────────────────────────────────────────────────────────
+\subsection{Notas bibliográficas}
+%───────────────────────────────────────────────────────────────────────────────
 
-\begin{enumerate}[leftmargin=2em, label=\alph*)]
-  \item Construya la matriz de diseño \(\mathbf{A}_{\mathrm{train}}\) (\Cref{alg:matriz_diseno}), resuelva mediante SVD (\Cref{alg:lsq_svd}) y calcule las métricas de error (\Cref{alg:metricas}) sobre los conjuntos de entrenamiento y prueba. 
-  \item Genere las siguientes gráficas:
-    \begin{itemize}[nosep, leftmargin=1.5em]
-      \item Curvas \(E_{\mathrm{train}}(p)\) y \(E_{\mathrm{test}}(p)\) en escala log–log (o semilog), junto con \(\log_{10}\kappa(p)\).
-      \item Para la base de Fourier aplicada a \(f_3\), grafique \(\log E_{\mathrm{test}}\) vs. \(\log p\) y estime la tasa de convergencia algebraica \(\hat{\alpha}\) mediante el estimador de dos puntos (\Cref{def:tasa_conv}). Compare con el valor teórico \(\alpha = 1\).
-      \item Espectro de valores singulares \(\sigma_k\) vs. \(k\) (escala log en \(y\)) para las tres bases con \(p = 15\); verifique que \(\sigma_1/\sigma_p = \kappa(\mathbf{A})\).
-    \end{itemize}
-  \item Identifique \(p^*\) como el valor que minimiza \(E_{\mathrm{test}}\) para cada combinación. Anote \(\kappa(p^*)\).
-\end{enumerate}
-
-Elabore la \textbf{tabla resumen A} (\(3\times 3\)) que reporte el par \((p^*,\, \kappa(p^*))\) para cada combinación base–función. Esta tabla es el núcleo de la Parte A y permite responder: ¿\(p^*\) depende de la base, de la función o de la interacción entre ambas?
-
-\end{ejerciciocomp}
-
-\begin{observacion}{Norma de parámetros como indicador de sobreajuste}
-Observe la evolución de \(\|\boldsymbol{\theta}^*\|_2\) al superar \(p^*\). En la base monomial aplicada a \(f_2\) (Runge), los coeficientes crecen en magnitud y alternan signo para cancelar términos enormes, produciendo una solución numéricamente inestable y sin sentido físico. Este comportamiento motiva directamente la penalización \(\lambda\|\boldsymbol{\theta}\|_2^2\) que se introducirá en la Práctica 2 (regularización de Tikhonov).
-\end{observacion}
-
-%─────────────────────────────────────────────────────────────────────
-\subsection*{Parte B — Regresión con ruido}
-\addcontentsline{toc}{subsection}{Parte B: Regresión con ruido}
-\label{sec:parteB}
-
-Se añade ruido gaussiano blanco aditivo $\varepsilon_i \sim \mathcal{N}(0, \sigma_\varepsilon^2)$ a las ordenadas de entrenamiento. Los datos de prueba se mantienen sin ruido. El objetivo es estudiar cómo el ruido afecta el punto óptimo $p^*$ y la estabilidad de la solución.
-
-\begin{ejerciciocomp}{Efecto del ruido sobre el ajuste óptimo}
-\label{ej:ruido}
-\dificultad{3}{2}
-
-Para cada base y cada función de prueba, realice los siguientes experimentos:
-
-\begin{enumerate}[leftmargin=2em, label=\alph*)]
-  \item Fije $p = p^*$ (obtenido en la Parte A) y barra $\sigma_\varepsilon \in \{0.05,\,0.1,\,0.2\}$. Para cada nivel de ruido, calcule $E_{\mathrm{train}}$ y $E_{\mathrm{test}}$.
-  \item Fije $\sigma_\varepsilon = 0.1$ y repita el barrido completo en $p$ para las tres bases sobre la función $f_2$ (Runge). Genere una gráfica que superponga $E_{\mathrm{test}}(p)$ con ruido y sin ruido. Identifique el nuevo $p^*_{\mathrm{ruido}}$.
-  \item Para la base monomial y $f_2$, grafique las curvas ajustadas en dos casos: (i) $p = p^*$ (sin ruido) y (ii) $p = p^*_{\mathrm{ruido}}$ (con ruido). Incluya en la misma figura los datos ruidosos de entrenamiento.
-  \item Para las tres bases y $f_2$, registre la evolución de $\|\boldsymbol{\theta}^*\|_2$ en función de $p$ (con y sin ruido, $\sigma_\varepsilon=0.1$).
-\end{enumerate}
-
-Elabore la \textbf{tabla resumen B} (3 filas, una por base) que contenga:
-\begin{itemize}[nosep, leftmargin=1.5em]
-  \item $p^*$ (sin ruido, de la Parte A),
-  \item $p^*_{\mathrm{ruido}}$ para $\sigma_\varepsilon=0.1$,
-  \item la razón $\|\boldsymbol{\theta}^*\|_2^{\text{ruido}} / \|\boldsymbol{\theta}^*\|_2^{\text{limpio}}$ evaluada en $p = p^*$ (sin ruido).
-\end{itemize}
-\end{ejerciciocomp}
-
-
-%─────────────────────────────────────────────────────────────────────
-\subsection*{Parte C — Efecto de $\sigma$ en RBF (opcional)}
-\addcontentsline{toc}{subsection}{Parte C: Efecto de $\sigma$ en RBF (opcional)}
-\label{sec:parteC}
-
-\begin{ejerciciocomp}{Variación del ancho de banda en RBF gaussiana}
-\label{ej:sigma_rbf}
-\dificultad{4}{3}
-
-Fije $f_2(x)$ (Runge), $p = 20$, $n = 80$, $\sigma_\varepsilon = 0.1$ (ruido). Barra $\sigma \in \{0.05,\,0.1,\,0.2,\,0.4,\,0.8,\,1.6\}$ y realice:
-
-\begin{enumerate}[leftmargin=2em, label=\alph*)]
-  \item Para cada $\sigma$, calcule $\kappa(\mathbf{A})$, $E_{\mathrm{train}}$ y $E_{\mathrm{test}}\). Grafique $\kappa(\sigma)$ y $E_{\mathrm{test}}(\sigma)$ en ejes bi-logarítmicos. Identifique si existe un $\sigma^*$ que minimice $E_{\mathrm{test}}$.
-  \item Repita el barrido en $\sigma$ para $p \in \{10, 20, 40\}$. En una misma figura, superponga las curvas $E_{\mathrm{test}}(\sigma)$ para los tres valores de $p$. Analice cómo se desplaza $\sigma^*$ al aumentar $p$ y compárelo con el espaciado entre centros $(b-a)/(p-1)$.
-  \item (Opcional) Interprete el barrido en $\sigma$ como un barrido en tiempo de difusión (núcleo de calor). Comente la relación con el proceso directo de los modelos de difusión (Prácticas 9--10).
-\end{enumerate}
-
-\end{ejerciciocomp}
-
-% ---------------------------------------------------------------------------
-% RESULTADOS
-% ---------------------------------------------------------------------------
-\section*{Resultados}
-\addcontentsline{toc}{section}{Resultados}
-\label{sec:resultados}
-
-\textit{En esta sección se presentan los resultados obtenidos en los experimentos. Las tablas y figuras deben completarse con los valores y gráficas generados durante la práctica.}
-
-% ===========================================================================
-% Parte A — Aproximación sin ruido
-% ===========================================================================
-\subsection*{Parte A — Aproximación sin ruido}
-
-\subsubsection*{Tabla resumen de parámetros óptimos}
-
-La \Cref{tab:resumen_A} muestra, para cada combinación de base y función de prueba, el número de parámetros \(p^*\) que minimiza el error de prueba \(E_{\mathrm{test}}\) y el número de condición \(\kappa(\mathbf{A}_{\mathrm{train}})\) evaluado en ese punto.
-
-\begin{acadtable}{tab:resumen_A}{Valor óptimo \(p^*\) y \(\kappa(p^*)\) para cada base y función (sin ruido).}
-  \begin{tabular}{lccc}
-    \toprule
-    \headerrow
-    \textbf{Base} & $f_1$ (coseno) & $f_2$ (Runge) & $f_3$ ($|x|$) \\
-    \midrule
-    Monomios        & ([dato], [dato]) & ([dato], [dato]) & ([dato], [dato]) \\
-    Fourier         & ([dato], [dato]) & ([dato], [dato]) & ([dato], [dato]) \\
-    RBF ($\sigma=0.2$) & ([dato], [dato]) & ([dato], [dato]) & ([dato], [dato]) \\
-    \bottomrule
-  \end{tabular}
-\end{acadtable}
-
-\subsubsection*{Figuras}
-
-A continuación se listan las figuras que deben incluirse en esta subsección. Cada figura debe estar correctamente etiquetada, con ejes nombrados y, cuando corresponda, leyenda y escala logarítmica.
-
-\begin{enumerate}[leftmargin=2em, label=\textbf{G\arabic*.}]
-  \item \textbf{Curvas de error de prueba y entrenamiento} para la función \(f_2\) (Runge):
-    \begin{itemize}
-      \item Gráfica de \(E_{\mathrm{train}}(p)\) y \(E_{\mathrm{test}}(p)\) en escala log–log (o semilog) para las tres bases, en un mismo panel.
-      \item Marcar el valor \(p^*\) donde \(E_{\mathrm{test}}\) alcanza su mínimo para cada base.
-    \end{itemize}
-  \item \textbf{Número de condición en función de \(p\)} para la función \(f_2\):
-    \begin{itemize}
-      \item Gráfica de \(\log_{10}\kappa(p)\) frente a \(p\) (escala semilog) para las tres bases.
-    \end{itemize}
-  \item \textbf{Espectro de valores singulares} para \(p = 15\):
-    \begin{itemize}
-      \item Gráfica de \(\sigma_k\) (en escala log) vs. \(k\) para las tres bases.
-      \item Verificar que \(\sigma_1/\sigma_p = \kappa(\mathbf{A})\).
-    \end{itemize}
-  \item \textbf{Tasa de convergencia de Fourier para \(f_3\)}:
-    \begin{itemize}
-      \item Gráfica de \(\log E_{\mathrm{test}}\) vs. \(\log p\).
-      \item Incluir la recta de referencia con pendiente \(\alpha = 1\) y estimar la pendiente empírica \(\hat{\alpha}\).
-    \end{itemize}
-  \item \textbf{Evolución de la norma de los parámetros} (opcional, pero recomendada):
-    \begin{itemize}
-      \item Gráfica de \(\|\boldsymbol{\theta}^*\|_2\) frente a \(p\) para la base monomial aplicada a \(f_2\).
-    \end{itemize}
-\end{enumerate}
-
-\subsection*{Parte B — Regresión con ruido}
-
-\subsubsection*{Tabla resumen del efecto del ruido}
-
-La \Cref{tab:resumen_B} recoge, para cada base y para la función \(f_2\) (Runge), el número óptimo de parámetros sin ruido (\(p^*\), de la Parte A), el óptimo bajo ruido \(\sigma_\varepsilon = 0.1\) (\(p^*_{\text{ruido}}\)), y el cociente entre la norma de los parámetros con ruido y sin ruido evaluado en \(p = p^*\) (sin ruido).
-
-\begin{acadtable}{tab:resumen_B}{Resumen del efecto del ruido (\(\sigma_\varepsilon=0.1\)) sobre \(p^*\) y la norma de los parámetros para \(f_2\).}
-  \begin{tabular}{lccc}
-    \toprule
-    \headerrow
-    \textbf{Base} & \(p^*\) (sin ruido) & \(p^*_{\text{ruido}}\) & \(\|\theta\|_{\text{ruido}} / \|\theta\|_{\text{limpio}}\) \\
-    \midrule
-    Monomios        & [dato] & [dato] & [dato] \\
-    Fourier         & [dato] & [dato] & [dato] \\
-    RBF (\( \sigma=0.2 \)) & [dato] & [dato] & [dato] \\
-    \bottomrule
-  \end{tabular}
-\end{acadtable}
-
-\subsubsection*{Figuras}
-
-Incluya las siguientes gráficas, generadas a partir de sus experimentos con ruido:
-
-\begin{enumerate}[leftmargin=2em, label=\textbf{B\arabic*.}]
-  \item \textbf{Curvas de error de prueba con y sin ruido} para la función \(f_2\) (Runge) y \(\sigma_\varepsilon = 0.1\):
-    \begin{itemize}
-      \item Superposición de \(E_{\mathrm{test}}(p)\) para el caso sin ruido (Parte A) y con ruido, para las tres bases.
-      \item Marcar \(p^*\) y \(p^*_{\text{ruido}}\) en cada curva.
-    \end{itemize}
-  \item \textbf{Curvas ajustadas del modelo} para la base monomial sobre \(f_2\):
-    \begin{itemize}
-      \item En una misma figura, represente los datos ruidosos de entrenamiento (puntos) y las predicciones del modelo para:
-        \begin{itemize}
-          \item \(p = p^*\) (sin ruido, ajustado con datos limpios),
-          \item \(p = p^*_{\text{ruido}}\) (ajustado con datos ruidosos).
-        \end{itemize}
-      \item Incluya también la función exacta \(f_2(x)\) como referencia.
-    \end{itemize}
-  \item \textbf{Evolución de la norma de los parámetros} para \(f_2\):
-    \begin{itemize}
-      \item Gráfica de \(\|\boldsymbol{\theta}^*\|_2\) en función de \(p\) para el caso sin ruido y con ruido (\(\sigma_\varepsilon = 0.1\)), para las tres bases.
-    \end{itemize}
-\end{enumerate}
-
-\subsection*{Parte C — Influencia de $\sigma$ en RBF (opcional)}
-
-\subsubsection*{Tabla resumen del efecto de $\sigma$}
-
-La \Cref{tab:resumen_C} muestra, para la función \(f_2\) (Runge) con \(p=20\) y ruido \(\sigma_\varepsilon = 0.1\), el número de condición \(\kappa(\mathbf{A})\) y el error de prueba \(E_{\mathrm{test}}\) para los distintos valores del ancho de banda \(\sigma\). Si se ha explorado \(p \in \{10,20,40\}\), se debe incluir una tabla similar para cada valor de \(p\) o una tabla combinada.
-
-\begin{acadtable}{tab:resumen_C}{Resultados para la RBF gaussiana (\(f_2\), \(p=20\), \(\sigma_\varepsilon=0.1\)) en función de \(\sigma\).}
-  \begin{tabular}{c c c}
-    \toprule
-    \headerrow
-    \(\sigma\) & \(\kappa(\mathbf{A})\) & \(E_{\mathrm{test}}\) \\
-    \midrule
-    0.05  & [dato] & [dato] \\
-    0.1   & [dato] & [dato] \\
-    0.2   & [dato] & [dato] \\
-    0.4   & [dato] & [dato] \\
-    0.8   & [dato] & [dato] \\
-    1.6   & [dato] & [dato] \\
-    \bottomrule
-  \end{tabular}
-\end{acadtable}
-
-\subsubsection*{Figuras}
-
-Incluya las siguientes gráficas, generadas a partir de sus experimentos:
-
-\begin{enumerate}[leftmargin=2em, label=\textbf{C\arabic*.}]
-  \item \textbf{Curvas de error y número de condición en función de \(\sigma\)} para \(p=20\):
-    \begin{itemize}
-      \item Gráfica bi-logarítmica de \(E_{\mathrm{test}}(\sigma)\).
-      \item Gráfica bi-logarítmica de \(\kappa(\sigma)\).
-    \end{itemize}
-  \item \textbf{Comparación para distintos \(p\)} (si se realizó):
-    \begin{itemize}
-      \item Superposición de las curvas \(E_{\mathrm{test}}(\sigma)\) para \(p = 10, 20, 40\) en una misma gráfica bi-logarítmica.
-      \item Marcar el valor \(\sigma^*\) que minimiza \(E_{\mathrm{test}}\) en cada curva.
-    \end{itemize}
-\end{enumerate}
-
-% ---------------------------------------------------------------------------
-% DISCUSIÓN
-% ---------------------------------------------------------------------------
-\section*{Discusión}
-\addcontentsline{toc}{section}{Discusión}
-\label{sec:discusion}
-
-\textit{Responde de forma concisa (uno o dos párrafos por cada concepto) utilizando valores concretos de tus tablas y figuras.}
-
-\paragraph*{1. Condicionamiento y pérdida de precisión numérica.}
-Con base en la tabla de barrido (por ejemplo, para la base monomial), identifica a partir de qué \(p\) se cumple \(\kappa > 10^{10}\). ¿Cuántos dígitos significativos se pierden en doble precisión? ¿El deterioro de \(E_{\mathrm{test}}\) coincide con ese umbral?
-
-\paragraph*{2. Dependencia del punto óptimo \(p^*\) respecto a la base y la función.}
-Usando la Tabla resumen A, explica si \(p^*\) cambia más al variar la base o al variar la función. Cita al menos dos casos concretos donde para una misma función \(p^*\) sea muy diferente entre dos bases, o para una misma base \(p^*\) sea muy diferente entre dos funciones.
-
-\paragraph*{3. Efecto del ruido: desplazamiento de \(p^*\) e inflación de \(\|\boldsymbol{\theta}^*\|_2\).}
-A partir de la Tabla resumen B, describe cómo se desplaza \(p^*\) al añadir ruido (\(\sigma_\varepsilon=0.1\)) para cada base. Relaciona el desplazamiento con el cociente \(\|\boldsymbol{\theta}^*\|_2^{\text{ruido}} / \|\boldsymbol{\theta}^*\|_2^{\text{limpio}}\). Conecta este comportamiento con la regularización de Tikhonov (penalización \(\lambda\|\boldsymbol{\theta}\|_2^2\)).
-
-\paragraph*{4. Tasa de convergencia de Fourier para \(f_3\) (y efecto del ruido).}
-Para \(f_3(x)=|x|\) ajustada con Fourier (sin ruido), estima la tasa \(\hat{\alpha}\) usando el estimador de dos puntos (Apéndice A). Compara con \(\alpha=1\). Si añades ruido, comenta si la tasa se degrada y por qué (relación señal/ruido en coeficientes de alta frecuencia).
-
-\paragraph*{Nota:} Si realizaste la Parte C (RBF y variación de \(\sigma\)), añade un breve comentario sobre la existencia de un \(\sigma^*\) que minimiza \(E_{\mathrm{test}}\) y su relación con el espaciado entre centros.
-
-% ---------------------------------------------------------------------------
-% CONCLUSIONES
-% ---------------------------------------------------------------------------
-\section*{Conclusiones}
-\addcontentsline{toc}{section}{Conclusiones}
-\label{sec:conclusiones}
-
-\textit{Redacta cuatro párrafos siguiendo esta estructura. Apoya cada afirmación en valores concretos de tus tablas y figuras.}
-
-\paragraph*{1. Idoneidad de cada base según la función.}
-Compara el rendimiento de las tres bases para cada función de prueba. Explica por qué la base de Fourier es especialmente eficaz para la función periódica \(f_1\) (ortogonalidad, bajo número de condición), mientras que la base monomial sufre inestabilidad para grados altos, especialmente en \(f_2\) (Runge) y \(f_3\) (valor absoluto). Comenta el papel de la regularidad de la función y de la propiedad de ortogonalidad (o su ausencia) en los resultados obtenidos.
-
-\paragraph*{2. El número de condición como indicador anticipado del colapso numérico.}
-Describe cómo evoluciona \(\kappa(\mathbf{A})\) al aumentar \(p\) para cada base. Señala a partir de qué valor de \(p\) el número de condición supera \(10^{10}\) (o \(10^{12}\)) y relaciona ese umbral con la pérdida de dígitos significativos en doble precisión. ¿El deterioro del error de prueba coincide con ese umbral? Utiliza los valores de tu tabla de barrido (por ejemplo, para \(f_2\)) para respaldar tu respuesta.
-
-\paragraph*{3. Efecto del ruido: desplazamiento de \(p^*\) e inflación de la norma de los parámetros.}
-A partir de la Tabla resumen B, indica cómo se desplaza \(p^*\) al añadir ruido (\(\sigma_\varepsilon = 0.1\)) en cada base. Relaciona el desplazamiento con el cociente \(\|\boldsymbol{\theta}^*\|_2^{\text{ruido}} / \|\boldsymbol{\theta}^*\|_2^{\text{limpio}}\). Explica por qué un valor grande de este cociente indica sobreajuste y cómo la regularización de Tikhonov (\(\lambda\|\boldsymbol{\theta}\|_2^2\)) puede controlar este efecto.
-
-\paragraph*{4. Preguntas abiertas y transición a la siguiente práctica.}
-Señala las limitaciones del enfoque actual: no existe un criterio automático para elegir \(p\) sin conocer \(f^*\), y el mal condicionamiento exige una estabilización. ¿Cómo se puede controlar la norma de los parámetros sin sacrificar el ajuste? Estas preguntas motivan la introducción de la regularización de Tikhonov, que se estudiará en la Práctica 2, donde se interpretará espectralmente mediante la SVD y se conectará con la estimación MAP bajo prior gaussiana.
-
-% ---------------------------------------------------------------------------
-% NOTAS BIBLIOGRÁFICAS
-% ---------------------------------------------------------------------------
 \begin{notasbib}
-Los modelos lineales en parámetros y la solución por mínimos cuadrados se
-tratan en el Capítulo~1 de \textit{La máquina estocástica}. La presentación
-clásica de la interpolación polinomial y el fenómeno de Runge se encuentra
-en \textcite{trefethen2019approximation}, cuya versión en MATLAB/Chebfun es
-de acceso abierto. El condicionamiento de la matriz de Vandermonde se
-analiza con detalle en \textcite{gautschi2012numerical}, donde se discuten
-también las bases polinomiales ortogonales (Legendre, Chebyshev) que
-resuelven el problema de condicionamiento a costa de mayor complejidad
-de implementación. La teoría de RBF se desarrolla en \textcite{wendland2004scattered},
-incluyendo la demostración de que las RBF multicuadráticas producen
-sistemas lineales con número de condición controlable. La convergencia
-espectral de las series de Fourier y la relación entre regularidad y tasa de
-convergencia se tratan exhaustivamente en \textcite{trefethen1997numerical}
-(Lectures 1--4). Para el tratamiento estadístico del dilema sesgo-varianza
-y la conexión con regularización, el texto de referencia es el Capítulo~3
-de \textcite{bishop2006pattern}. Las métricas de error computacional y el
-análisis de número de condición se detallan en el \Cref{ap:herramientas}
-de este compendio, con referencias primarias a \textcite{golub2013matrix}
-y \textcite{higham2002accuracy}.
+Para una introducción a espacios de Hilbert, véase \cite{reed1980functional}.
+La formulación variacional del problema de Poisson y el método de elementos
+finitos se presentan en detalle en cualquier texto de análisis numérico de
+EDPs. Los métodos de score matching se analizan en
+\cite{hyvarinen2005estimation} y su versión denoising en
+\cite{vincent2011connection}.
 \end{notasbib}
-
-\printbibliography[heading=subbibliography,title={Referencias}]
