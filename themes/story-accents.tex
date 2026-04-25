@@ -1,0 +1,23 @@
+%── themes/story-accents.tex ────────────────────────────────────────────────
+%
+% Paleta tonal del poster: grises con tinte azul-índigo.
+% Son los overlays de Catppuccin Mocha usados sobre blanco —
+% más sofisticados que grises puros, coherentes con el sistema Ctp.
+%
+% Sistema de acento: un único color por historia, definido en
+% story-content.tex como \StoryAccentColor (nombre de color Ctp*).
+% Se materializa en \begin{document} con:
+%   \colorlet{StoryAccent}{\StoryAccentColor}
+%   \colorlet{StoryAccentFaint}{\StoryAccentColor!12!white}
+%───────────────────────────────────────────────────────────────────────────
+
+% ─── Escala tonal (4 niveles + fantasma) ────────────────────────────────────
+\definecolor{InkBlack}{HTML}{1e1e2e}   % héroe, énfasis máximo
+\definecolor{InkDark} {HTML}{313244}   % títulos principales
+\definecolor{InkMid}  {HTML}{585b70}   % body text, subtítulos
+\definecolor{InkLight}{HTML}{9399b2}   % metadatos, captions, fechas
+\definecolor{InkFaint}{HTML}{cdd6f4}   % líneas sutiles, número decorativo
+
+% ─── Nota: NO se sobreescriben colores Ctp* aquí ────────────────────────────
+% La paleta Catppuccin completa sigue disponible para ecuaciones
+% (equation-styles.tex) y para el acento de color de la historia.

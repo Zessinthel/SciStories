@@ -1,0 +1,61 @@
+%── config/packages-story.tex ──────────────────────────────────────────────
+% Subconjunto mínimo para póster de una sola página.
+%───────────────────────────────────────────────────────────────────────────
+
+% ─── Encoding y lenguaje ────────────────────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-noshorthands]{babel}
+\deactivatequoting
+\usepackage{csquotes}
+
+% ─── Tipografía ─────────────────────────────────────────────────────────────
+% Inconsolata: monospace con carácter, garantizado en TeX Live estándar.
+% \familydefault → \ttdefault hace que TODO el texto sea monospace.
+% Las matemáticas conservan Computer Modern (fuente propia de math mode).
+\usepackage{inconsolata}
+\renewcommand{\familydefault}{\ttdefault}
+\usepackage{microtype}
+
+% ─── Matemáticas ────────────────────────────────────────────────────────────
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{bm}
+\usepackage{physics}
+\usepackage{cancel}
+\usepackage{siunitx}
+\sisetup{
+  output-decimal-marker = {,},
+  per-mode              = symbol,
+}
+
+% ─── Color ──────────────────────────────────────────────────────────────────
+\usepackage{xcolor}
+
+% ─── Cajas y poster ─────────────────────────────────────────────────────────
+\usepackage[many,poster]{tcolorbox}
+\tcbuselibrary{skins,hooks,poster,fitting}
+
+% ─── TikZ ───────────────────────────────────────────────────────────────────
+\usepackage{tikz}
+\usetikzlibrary{
+  arrows.meta,
+  positioning,
+  calc,
+  decorations.pathreplacing,
+  backgrounds,
+}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+
+% ─── Figuras ────────────────────────────────────────────────────────────────
+\usepackage{graphicx}
+
+% ─── Listings ───────────────────────────────────────────────────────────────
+\usepackage{listings}
+
+% ─── Utilidades ─────────────────────────────────────────────────────────────
+\usepackage{etoolbox}
+\usepackage{xparse}
+\usepackage[hidelinks]{hyperref}

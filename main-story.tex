@@ -1,0 +1,229 @@
+%══════════════════════════════════════════════════════════════════════════════
+% MAIN-STORY.TEX — Template para historias científicas verticales 9:16
+% Motor: pdfLaTeX  |  Compilar DOS veces (TikZ remember picture)
+%
+% ZONA SEGURA para redes sociales:
+%   Columnas:  2-11 (10 columnas de contenido; 1 y 12 = márgenes)
+%   Filas:     3-22 (20 filas de contenido; 1-2 y 23-24 = buffers)
+%
+% LAYOUT COMPLETO (24 filas × 12 columnas):
+%   Fila  1-2    → Metadatos, acento, categoría (sangran OK)
+%   Filas 3-6    → HÉROE: ecuación (SAFE)
+%   Fila  7      → Barra de acento (SAFE)
+%   Filas 8-10  → Título (SAFE)
+%   Fila  11     → Subtítulo (SAFE)
+%   Filas 12-14  → Abstract (SAFE)
+%   Filas 15-22  → Figura (SAFE)
+%   Fila  15-22  → Body (SAFE)
+%   Filas 23-24  → Footer (sangra OK)
+%══════════════════════════════════════════════════════════════════════════════
+\documentclass[9pt,oneside]{article}
+
+%── 1. Paquetes ───────────────────────────────────────────────────────────────
+\input{config/packages-story.tex}
+
+%── 2. Geometría ───────────────────────────────────────────────────────────────
+\input{config/geometry-story.tex}
+
+% ─── Eliminar espacios verticales por defecto del article class ──────────────
+\setlength{\topmargin}{-1in}
+\setlength{\headheight}{0pt}
+\setlength{\headsep}{0pt}
+\setlength{\footskip}{0pt}
+\setlength{\textheight}{\paperheight}
+\raggedbottom
+
+%── 3. Paleta de colores ───────────────────────────────────────────────────────
+\input{themes/catppuccin-palette.tex}
+\input{themes/story-accents.tex}
+
+%── 4. Macros matemáticos ──────────────────────────────────────────────────────
+\input{config/macros.tex}
+
+%── 5. Configuraciones que requieren colores ────────────────────────────────────
+\input{config/equation-styles.tex}
+\input{config/pgfplots-config.tex}
+
+%── 6. Tipografía y cajas ──────────────────────────────────────────────────────
+\input{config/typography-story.tex}
+\input{config/tcolorbox-story.tex}
+
+%── 7. Entornos ───────────────────────────────────────────────────────────────
+\input{environments/generator.tex}
+\input{environments/story-blocks.tex}
+
+%── 8. Contenido de la historia ────────────────────────────────────────────────
+\input{story-content.tex}
+
+%── 9. Metadatos PDF ───────────────────────────────────────────────────────────
+\hypersetup{
+  pdftitle  = {\StoryTitle},
+  pdfauthor = {QbitLab},
+}
+
+%── 10. Color de página (preamble, antes de \begin{document}) ──────────────────
+\pagecolor{white}
+\color{InkDark}
+
+% Materializar color de acento
+\colorlet{StoryAccent}{\StoryAccentColor}
+\colorlet{StoryAccentFaint}{\StoryAccentColor!12!white}
+
+%══════════════════════════════════════════════════════════════════════════════
+\begin{document}
+
+%══════════════════════════════════════════════════════════════════════════════
+% POSTER GRID  (24 filas × 12 columnas)
+% Zona segura: columnas 2-11, filas 3-22
+%══════════════════════════════════════════════════════════════════════════════
+\vspace*{0pt}%
+\begin{tcbposter}[
+  poster={
+    showframe = true,      % cambiar a true para ver grid (debug)
+    columns   = 12,
+    rows      = 24,
+    spacing   = 1.2mm,
+    height    = \paperheight - 0.7cm,
+    width     = \paperwidth  - 0.7cm,
+  },
+  boxes={ghost},
+]
+
+%──────────────────────────────────────────────────────────────────────────────
+% [F1-2] METADATOS + ACENTO + CATEGORÍA
+% Filas 1-2 son buffers (pueden sangrar fuera de la zona segura).
+% Esto permite que la categoría y metadatos sean visibles pero no críticos.
+%──────────────────────────────────────────────────────────────────────────────
+
+%── [F1] Metadatos técnicos (serie, fecha, categoría) ────────────────────────
+\posterbox[ghostpad]{column=2, span=10, row=1}{%
+  \MetaFont
+  \begin{minipage}[c]{0.6\linewidth}
+    \StorySeriesTag\enspace ---\enspace \StoryDate
+  \end{minipage}%
+  \hfill
+  \begin{minipage}[c]{0.35\linewidth}\raggedleft
+    \StoryCategory
+  \end{minipage}%
+}
+
+%── [F2a] Barra de acento (fondo, todo el ancho) ───────────────────────────────
+\posterbox[ghost, top=0pt, bottom=0pt, left=4pt, right=4pt, valign=center]{%
+  column=2, span=8, row=2%
+}{%
+  \AccentBar{StoryAccent}%
+}
+ 
+%── [F2b] Chip de categoría (flotante sobre la línea, derecha) ─────────────────
+\posterbox[
+  ghost,
+  top=0pt, bottom=0pt, left=10pt, right=0pt,
+  halign=right, valign=center
+]{%
+  column=9, span=2, row=2%
+}{%
+  \StoryCat{StoryAccent}{\StoryCategory}%
+}
+
+%══════════════════════════════════════════════════════════════════════════════
+% ZONA SEGURA COMIENZA (filas 3-22, columnas 2-11)
+%══════════════════════════════════════════════════════════════════════════════
+
+%──────────────────────────────────────────────────────────────────────────────
+% [F3–6] HÉROE: ECUACIÓN PRINCIPAL (SAFE)
+% 6 filas = ~25% del área. Centro del espacio seguro.
+%──────────────────────────────────────────────────────────────────────────────
+\posterbox[ghost, halign=center, valign=center]{%
+  column=2, span=10, row=3, rowspan=4%
+}{%
+  {\HeroFont
+  \begin{equation*}
+    \displaystyle\StoryEquation
+  \end{equation*}}%
+  \par\vspace{4pt}%
+  {\CaptFont\StoryModelLabel}%
+}
+
+%──────────────────────────────────────────────────────────────────────────────
+% [F7] BARRA DE ACENTO (SAFE)
+% Divisor visual entre sección matemática y editorial.
+%──────────────────────────────────────────────────────────────────────────────
+\posterbox[ghost, top=0pt, bottom=0pt, left=4pt, right=4pt, valign=center]{%
+  column=2, span=10, row=7%
+}{%
+  \AccentBar{StoryAccent}%
+  \vspace{2pt}%
+}
+
+%──────────────────────────────────────────────────────────────────────────────
+% [F8–10] TÍTULO + NÚMERO DECORATIVO (SAFE)
+% Título en columnas 2-11. Número decorativo en "zona de margen" (columna 12).
+%──────────────────────────────────────────────────────────────────────────────
+\posterbox[ghostpad]{column=2, span=9, row=8, rowspan=3}{%
+  {\TitleFont\StoryTitle\par}%
+}
+
+% Número decorativo: en margen derecho (column=12, puede sangrar)
+\posterbox[ghost, halign=right, valign=bottom]{%
+  column=10, span=1, row=8, rowspan=1%
+}{%
+  \DisplayNum{\StoryNumber}%
+}
+
+%──────────────────────────────────────────────────────────────────────────────
+% [F11] SUBTÍTULO (SAFE)
+%──────────────────────────────────────────────────────────────────────────────
+\posterbox[ghostpad]{column=2, span=9, row=11}{%
+  {\SubFont\StorySubtitle}%
+}
+
+%──────────────────────────────────────────────────────────────────────────────
+% [F12–14] ABSTRACT (SAFE)
+% Borde izquierdo de acento: único indicio estructural visible.
+%──────────────────────────────────────────────────────────────────────────────
+\posterbox[leftaccent=StoryAccent]{column=2, span=9, row=12, rowspan=3}{%
+  {\BodyFont\StoryAbstract}%
+}
+
+%──────────────────────────────────────────────────────────────────────────────
+% [F15–22]  FIGURA / GRÁFICO (SAFE)
+% 8 filas = ~33% del área.
+%──────────────────────────────────────────────────────────────────────────────
+\posterbox[ghost, halign=center, valign=center]{%
+  column=2, span=9, row=15, rowspan=8%
+}{%
+  \centering
+  \StoryFigure
+  \par\vspace{3pt}%
+  {\CaptFont\StoryFigCaption}%
+}
+
+%──────────────────────────────────────────────────────────────────────────────
+% [F15–22] PÁRRAFO DESCRIPTIVO / ALTERNATIVA A FIGURA (SAFE)
+%──────────────────────────────────────────────────────────────────────────────
+%\posterbox[ghostpad]{column=2, span=9, row=15,  rowspan=8}{%
+%  {\BodyFont\StoryBody}%
+%}
+
+%──────────────────────────────────────────────────────────────────────────────
+% [F23-24] FOOTER: REFERENCIAS + MARCA (BUFFERS, pueden sangrar)
+% Filas 23-24 son buffers inferiores (pueden cortarse en redes sociales).
+%──────────────────────────────────────────────────────────────────────────────
+\posterbox[
+  ghost,
+  borderline north={0.4pt}{1pt}{InkFaint},
+  left=4pt, right=4pt, top=2pt, bottom=2pt,
+]{%
+  column=2, span=10, row=23, rowspan=2%
+}{%
+  \begin{minipage}[c]{0.74\linewidth}
+    {\fontsize{5.5}{7}\selectfont\color{InkLight}\StoryRefs}%
+  \end{minipage}%
+  \hfill
+  \begin{minipage}[c]{0.22\linewidth}\raggedleft
+    {\fontsize{5.5}{7}\selectfont\color{StoryAccent}@QbitLab}%
+  \end{minipage}%
+}
+
+\end{tcbposter}
+\end{document}

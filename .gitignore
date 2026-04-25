@@ -32,3 +32,6 @@ Thumbs.db
 # Archivos generados por LaTeX
 *.dvi
 *.out.ps
+*.svg
+tmp*.ps
+tmp*.@@@

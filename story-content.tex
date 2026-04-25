@@ -1,0 +1,101 @@
+%══════════════════════════════════════════════════════════════════════════════
+% STORY-CONTENT.TEX — Historia #001: Score Matching y Difusión Estocástica
+%
+% Único archivo a editar por historia.
+% \providecommand (en lugar de \newcommand) evita errores si el archivo
+% se carga más de una vez accidentalmente.
+%══════════════════════════════════════════════════════════════════════════════
+
+% ─── Identidad ───────────────────────────────────────────────────────────────
+\providecommand{\StoryAccentColor}{CtpMauve}
+\providecommand{\StoryNumber}{001}
+\providecommand{\StoryDate}{2025}
+\providecommand{\StorySeriesTag}{QbitLab Stories}
+\providecommand{\StoryCategory}{Modelos Generativos}
+
+% ─── Textos ──────────────────────────────────────────────────────────────────
+\providecommand{\StoryTitle}{%
+  \textquestiondown C\'OMO APRENDE\\ UNA RED A\\ GENERAR RUIDO?%
+}
+\providecommand{\StorySubtitle}{Score matching y difusi\'on estoc\'astica}
+\providecommand{\StoryModelLabel}{Objetivo de entrenamiento (denoising score matching)}
+
+\providecommand{\StoryAbstract}{%
+  Los modelos de difusi\'on aprenden a invertir un proceso de corrupci\'on
+  gaussiana. El truco central: en lugar de estimar $p(x)$ directamente
+  ---intractable--- se estima su gradiente logar\'itmico, el \emph{score}
+  $\nabla_x \log p(x)$. Gracias a la identidad de Vincent (2011), esto
+  equivale a predecir el ruido a\~nadido: regresi\'on pura.%
+}
+
+% ─── Ecuación héroe ──────────────────────────────────────────────────────────
+% Renderizada a ~16pt en display mode. Usa macros de equation-styles.tex.
+\providecommand{\StoryEquation}{%
+  \eqfn{\mathcal{L}}(\equ{\theta})
+  \;=\;
+  \eqcon{\tfrac{1}{2}}\,
+  \eqop{\mathbb{E}}_{\!\eqk{x}}
+  \!\left[
+    \bigl\|
+      \eqfn{s_{\equ{\theta}}}(\eqk{x})
+      -
+      \eqop{\nabla_{\!\eqk{x}}} \log \eqk{p(x)}
+    \bigr\|^2
+  \right]%
+}
+
+% ─── Figura ───────────────────────────────────────────────────────────────────
+\providecommand{\StoryFigure}{%
+  \begin{tikzpicture}
+    \begin{axis}[
+      catppuccin-clean,
+      width       = 10cm,
+      height      = 6cm,
+      xlabel      = {$t$},
+      ylabel      = {$\sigma(t)$},
+      title       = {Programaci\'on de ruido},
+      domain      = 0:1,
+      samples     = 80,
+      no markers,
+      legend pos  = north west,
+      title style      = {font=\fontsize{7}{8}\selectfont\bfseries,
+                          color=InkDark},
+      label style      = {font=\fontsize{6.5}{7}\selectfont,
+                          color=InkMid},
+      tick label style = {font=\fontsize{6}{7}\selectfont,
+                          color=InkLight},
+      legend style     = {font=\fontsize{6}{7}\selectfont,
+                          draw=InkFaint, fill=white, text=InkMid},
+      axis line style  = {color=InkFaint},
+      tick style       = {color=InkFaint},
+    ]
+      \addplot+[thick] {sqrt(1 - exp(-5*x))};
+      \addlegendentry{VP-SDE}
+      \addplot+[thick] {x};
+      \addlegendentry{VE-SDE}
+      \addplot+[thick, dashed] {sqrt(x*(1-x))};
+      \addlegendentry{Sub-VP}
+    \end{axis}
+  \end{tikzpicture}%
+}
+
+\providecommand{\StoryFigCaption}{%
+  Tres esquemas de programaci\'on de ruido. El score $s_\theta(x,t)$
+  se entrena para cada nivel $t \in [0,1]$.%
+}
+
+% ─── Body ─────────────────────────────────────────────────────────────────────
+\providecommand{\StoryBody}{%
+  Durante la generaci\'on, el score guia una SDE de Langevin en tiempo
+  revertido: el proceso de Ornstein--Uhlenbeck inverso. La curva VP-SDE
+  preserva la varianza total; VE-SDE la hace crecer. Ambas convergen a
+  la misma distribuci\'on cuando el score es exacto.%
+}
+
+% ─── Referencias ─────────────────────────────────────────────────────────────
+\providecommand{\StoryRefs}{%
+  Song et al.\ (2021) \textit{Score-Based Generative Modeling through SDEs.}
+  ICLR.\\
+  Vincent (2011) \textit{A Connection Between Score Matching
+  and Denoising Autoencoders.} Neural Comput.%
+}

@@ -1,0 +1,46 @@
+%── deco/story-deco.tex ─────────────────────────────────────────────────────
+
+% Círculo decorativo en esquina
+% Uso: \DecoCircle[color]{anchor}{xshift}{radio}
+\newcommand{\DecoCircle}[4][CtpSurface0!40]{%
+  \begin{tikzpicture}[remember picture, overlay]
+    \draw[color=#1, line width=0.8pt]
+      ([xshift=#3]#2) circle (#4);
+  \end{tikzpicture}%
+}
+
+% Texto vertical decorativo
+% Uso: \DecoVerticalText[color]{Texto}{north west | south east | ...}
+\newcommand{\DecoVerticalText}[3][CtpOverlay0!50]{%
+  \begin{tikzpicture}[remember picture, overlay]
+    \node[
+      rotate=90,
+      anchor=south,
+      align=center,           % ← corregido: era text=center
+      font=\fontsize{5}{5}\selectfont\bfseries\sffamily,
+      color=#1,
+    ] at ([xshift=0.3cm, yshift=-2cm]current page.#3) {#2};
+  \end{tikzpicture}%
+}
+
+% Grid minimalista de fondo
+% Uso: \DecoGrid[color]{x1}{y1}{x2}{y2}  (en cm desde south west)
+\newcommand{\DecoGrid}[5][CtpSurface0!20]{%
+  \begin{tikzpicture}[remember picture, overlay]
+    \begin{scope}
+      \clip ($(current page.south west)+(#2cm,#3cm)$)
+            rectangle ($(current page.south west)+(#4cm,#5cm)$);
+      \draw[color=#1, step=0.5cm, line width=0.2pt]
+        ($(current page.south west)+(#2cm,#3cm)$)
+        grid ($(current page.south west)+(#4cm,#5cm)$);
+    \end{scope}
+  \end{tikzpicture}%
+}
+
+% Punto de acento
+\newcommand{\DecoDot}[3][CtpPeach]{%
+  \begin{tikzpicture}[remember picture, overlay]
+    \fill[color=#1]
+      ([xshift=#2, yshift=#3]current page.south west) circle (1.5pt);
+  \end{tikzpicture}%
+}

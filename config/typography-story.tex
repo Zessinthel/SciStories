@@ -1,0 +1,34 @@
+%── config/typography-story.tex ─────────────────────────────────────────────
+%
+% Jerarquía tipográfica del poster.
+% Contraste de escala: héroe 16pt ↔ metadatos 5pt (ratio 3.2×).
+%───────────────────────────────────────────────────────────────────────────
+
+% ─── Número decorativo (40pt, InkFaint) ─────────────────────────────────────
+\newcommand{\DisplayNum}[1]{%
+  {\fontsize{40}{40}\selectfont\bfseries\color{InkFaint}#1}%
+}
+
+% ─── Ecuación héroe (escala CM math vía fontsize previa al entorno math) ─────
+\newcommand{\HeroFont}{\fontsize{16}{20}\selectfont}
+
+% ─── Título ──────────────────────────────────────────────────────────────────
+\newcommand{\TitleFont}{\fontsize{30}{23}\selectfont\bfseries\color{InkBlack}}
+
+% ─── Subtítulo ───────────────────────────────────────────────────────────────
+\newcommand{\SubFont}{\fontsize{9}{11}\selectfont\color{InkMid}}
+
+% ─── Body y abstract ─────────────────────────────────────────────────────────
+\newcommand{\BodyFont}{\fontsize{7.5}{10.5}\selectfont\color{InkMid}}
+
+% ─── Caption de figura ───────────────────────────────────────────────────────
+\newcommand{\CaptFont}{\fontsize{6.5}{8}\selectfont\color{InkLight}}
+
+% ─── Chip de categoría ───────────────────────────────────────────────────────
+\newcommand{\CatFont}{\fontsize{6}{7}\selectfont\bfseries}
+
+% ─── Metadatos técnicos (barras superior e inferior) ─────────────────────────
+\newcommand{\MetaFont}{\fontsize{8}{8}\selectfont\color{InkLight}}
+
+% ─── Footer (referencias y marca) ────────────────────────────────────────────
+\newcommand{\FootFont}{\fontsize{5.5}{7}\selectfont\color{InkLight}}

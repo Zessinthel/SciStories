@@ -1,0 +1,72 @@
+%── config/tcolorbox-story.tex ──────────────────────────────────────────────
+%
+% Filosofía: ninguna caja es visible.
+% tcolorbox actúa exclusivamente como sistema de layout (posicionamiento,
+% padding, alineación). El diseño visible emerge solo de tipografía,
+% espacio y los dos únicos elementos cromáticos: \AccentBar y \StoryCat.
+%───────────────────────────────────────────────────────────────────────────
+
+% ─── Estilos base ────────────────────────────────────────────────────────────
+
+% ghost: caja completamente invisible, sin padding
+\tcbset{
+  ghost/.style={
+    enhanced,
+    frame hidden,
+    colback=white,
+    boxrule=0pt,
+    left=0pt, right=0pt, top=0pt, bottom=0pt,
+    sharp corners,
+  },
+}
+
+% ghostpad: ghost con padding mínimo (para separar contenido del borde del grid)
+\tcbset{
+  ghostpad/.style={
+    ghost,
+    left=4pt, right=4pt, top=3pt, bottom=3pt,
+  },
+}
+
+% leftaccent: borde izquierdo en color de acento, sin fondo visible
+% Uso: [leftaccent=StoryAccent]
+\tcbset{
+  leftaccent/.style={
+    ghost,
+    borderline west={1.5pt}{0pt}{#1},
+    left=8pt,
+    top=2pt, bottom=2pt, right=4pt,
+  },
+}
+
+% ─── Elementos cromáticos (los únicos dos elementos de color del poster) ─────
+
+% Chip de categoría: único bloque con fondo tintado
+% Uso: \StoryCat{StoryAccent}{Nombre de Categoría}
+\newcommand{\StoryCat}[2]{%
+  \tcbox[
+    enhanced,
+    frame hidden,
+    colback=#1!12!white,
+    arc=1.5pt,
+    boxrule=0pt,
+    left=4pt, right=4pt, top=1.5pt, bottom=1.5pt,
+    nobeforeafter,
+    box align=base,
+  ]{\CatFont\color{#1}\MakeUppercase{#2}}%
+}
+
+% Barra horizontal de acento: 2pt de color puro, ancho completo
+% Es el único elemento de color sólido en el poster (referencia: los
+% rectángulos naranja/negro de la imagen japonesa).
+% Uso: \AccentBar{StoryAccent}
+\newcommand{\AccentBar}[1]{%
+  {\color{#1}\rule{\linewidth}{2pt}}%
+}
+
+% ─── Separadores ─────────────────────────────────────────────────────────────
+
+% Línea gris sutil (footer, separaciones internas)
+\newcommand{\GrayRule}{%
+  {\color{InkFaint}\rule{\linewidth}{0.4pt}}%
+}
